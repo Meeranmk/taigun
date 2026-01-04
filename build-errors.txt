@@ -1,0 +1,17 @@
+﻿src/auth/team-manager.ts(35,29): error TS2339: Property 'addTeam' does not exist on type 'VectorDB'.
+src/auth/team-manager.ts(44,36): error TS2339: Property 'getTeamById' does not exist on type 'VectorDB'.
+src/auth/team-manager.ts(95,29): error TS2339: Property 'updateTeam' does not exist on type 'VectorDB'.
+src/auth/team-manager.ts(103,36): error TS2339: Property 'deleteTeam' does not exist on type 'VectorDB'.
+src/auth/team-manager.ts(110,36): error TS2339: Property 'getAllTeams' does not exist on type 'VectorDB'.
+src/auth/team-manager.ts(124,52): error TS2307: Cannot find module '../servicenow/api.js' or its corresponding type declarations.
+src/auth/user-manager.ts(40,29): error TS2339: Property 'addUser' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(49,36): error TS2339: Property 'getUserByUsername' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(56,36): error TS2339: Property 'getUserById' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(80,36): error TS2339: Property 'getUsersByTeam' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(101,29): error TS2339: Property 'updateUser' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(122,29): error TS2339: Property 'updateUser' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(130,36): error TS2339: Property 'deleteUser' does not exist on type 'VectorDB'.
+src/auth/user-manager.ts(137,36): error TS2339: Property 'getAllUsers' does not exist on type 'VectorDB'.
+src/index.ts(256,9): error TS2322: Type 'AppSettings | null' is not assignable to type '(AppSettings & { serviceNowPassword: string; }) | null'.
+  Type 'AppSettings' is not assignable to type 'AppSettings & { serviceNowPassword: string; }'.
+    Property 'serviceNowPassword' is missing in type 'AppSettings' but required in type '{ serviceNowPassword: string; }'.

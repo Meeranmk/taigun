@@ -1,0 +1,67 @@
+// ===== KNOWLEDGE BASE ENDPOINTS =====
+// Add these endpoints to api-server.ts after line 619 (after the password change endpoint)
+
+// Get knowledge base entries with pagination and search
+this.app.get('/api/admin/knowledge-base', this.requireAuth, async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const search = req.query.search as string || '';
+        const allEntries = await this.knowledgeBase.getAllEntries();
+        let filteredEntries = allEntries;
+        if (search) {
+            const searchLower = search.toLowerCase();
+            filteredEntries = allEntries.filter(entry =>
+                entry.problem.toLowerCase().includes(searchLower) ||
+                entry.category.toLowerCase().includes(searchLower) ||
+                entry.tags.some(tag => tag.toLowerCase().includes(searchLower))
+            );
+        }
+        const total = filteredEntries.length;
+        const totalPages = Math.ceil(total / limit);
+        const startIndex = (page - 1) * limit;
+        const paginatedEntries = filteredEntries.slice(startIndex, startIndex + limit);
+        res.json({ data: paginatedEntries, page, limit, total, totalPages });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Create new knowledge base entry
+this.app.post('/api/admin/knowledge-base', this.requireAuth, async (req: Request, res: Response) => {
+    try {
+        const { problem, solution, category, tags, priority } = req.body;
+        if (!problem || !solution || !category || !priority) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        const entry = await this.knowledgeBase.addEntry({
+            problem, solution, category, tags: tags || [], priority,
+            createdBy: req.session.username || 'unknown',
+        });
+        res.json(entry);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get analytics data
+this.app.get('/api/admin/analytics', this.requireAuth, async (req: Request, res: Response) => {
+    try {
+        const entries = await this.knowledgeBase.getAllEntries();
+        const analytics = {
+            totalEntries: entries.length,
+            mostUsed: entries.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5),
+            byCategory: entries.reduce((acc, entry) => {
+                acc[entry.category] = (acc[entry.category] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>),
+            byPriority: entries.reduce((acc, entry) => {
+                acc[entry.priority] = (acc[entry.priority] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>),
+        };
+        res.json(analytics);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
