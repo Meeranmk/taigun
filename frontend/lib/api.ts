@@ -1,6 +1,6 @@
 import type { User, KnowledgeBaseEntry, Analytics, AuthResponse, AuthStatus } from './types';
 
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:3001/api';
 
 class APIClient {
     private async request<T>(

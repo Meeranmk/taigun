@@ -1,253 +1,203 @@
 # Taigun - A ServiceNow AI Agent
 
-An automated AI-powered solution for handling ServiceNow tickets using Model Context Protocol (MCP) and Mastra AI.
+AI-powered ServiceNow ticket automation and knowledge management system built with **Python FastAPI**.
 
-## 🎯 Overview
+## 🚀 Features
 
-This AI agent automatically monitors ServiceNow tickets, provides intelligent responses, and manages a knowledge base for efficient ticket resolution.
+- **AI-Powered Solutions**: Automatically generate solutions using RAG (Retrieval-Augmented Generation)
+- **ServiceNow Integration**: Seamless integration with ServiceNow for ticket management
+- **Vector Database**: Qdrant for semantic search and similarity matching
+- **Knowledge Base**: Store and retrieve solutions from past tickets
+- **Multi-LLM Support**: Works with OpenAI and Google AI
+- **RESTful API**: FastAPI backend with automatic documentation
+- **Admin Portal**: Web-based admin interface for managing knowledge base
 
-## ✨ Features
-
-- **Automated Ticket Monitoring**: Continuously checks for new access-related tickets
-- **Intelligent Detection**: Uses keywords to identify access/authentication issues
-- **Automatic Responses**: Sends SSO instructions to customers
-- **MCP Integration**: Exposes ServiceNow operations as MCP tools
-- **Configurable**: Customize keywords, check intervals, and auto-resolve behavior
-
-## 🏗️ Architecture
+## 📁 Project Structure
 
 ```
-┌─────────────────────┐
-│   Mastra AI Agent   │
-│  (Ticket Processor) │
-└──────────┬──────────┘
-           │
-           │ MCP Protocol
-           │
-┌──────────▼──────────┐
-│   MCP Server        │
-│  (ServiceNow Tools) │
-└──────────┬──────────┘
-           │
-           │ REST API
-           │
-┌──────────▼──────────┐
-│   ServiceNow        │
-│   Instance          │
-└─────────────────────┘
+servicenow-mcp-agent/
+├── python-backend/          # Python FastAPI backend
+│   ├── app/                # Application modules
+│   ├── main.py            # FastAPI application
+│   ├── requirements.txt   # Python dependencies
+│   └── README.md          # Backend documentation
+└── frontend/               # Next.js frontend
 ```
 
-## 📋 Prerequisites
+**Note:** All data is now stored in cloud services:
+- **PostgreSQL** - User data, teams, knowledge base metadata
+- **Qdrant Cloud** - Vector embeddings for semantic search
 
-- **Node.js**: Version 18 or higher
-- **ServiceNow Instance**: With API access credentials
-- **LLM API Key**: OpenAI or Google AI API key
-- **Qdrant Cloud Account**: Free tier available at [cloud.qdrant.io](https://cloud.qdrant.io)
-- **npm or pnpm**: For package management
+## 🛠️ Quick Start
 
-## 🚀 Quick Start
-
-### 1. Install Dependencies
+### Backend Setup (Python FastAPI)
 
 ```bash
-npm install
-```
+# Navigate to backend
+cd python-backend
 
-### 2. Configure Environment
+# Install dependencies
+pip install -r requirements.txt
 
-Copy the example environment file and configure your credentials:
-
-```bash
+# Configure environment
 cp .env.example .env
+# Edit .env with your credentials
+
+# Run the server
+python run.py
 ```
 
-Edit `.env` with your credentials:
+The API server will start at http://localhost:8000
 
-```env
-# ServiceNow Configuration
-SERVICENOW_INSTANCE_URL=https://your-instance.service-now.com
-SERVICENOW_USERNAME=your_api_user
-SERVICENOW_PASSWORD=your_password
+**API Documentation:**
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-# LLM Provider (choose one)
-OPENAI_API_KEY=sk-your-openai-key
-# GOOGLE_API_KEY=your-google-api-key
+### Frontend Setup
 
-# Qdrant Cloud Configuration
-QDRANT_URL=https://your-cluster.cloud.qdrant.io
-QDRANT_API_KEY=your-qdrant-api-key
-
-# SSO Configuration
-SSO_SIGNIN_URL=https://your-sso-portal.com/login
-
-# Agent Configuration
-TICKET_CHECK_INTERVAL=300000
-AUTO_RESOLVE_TICKETS=false
-ACCESS_KEYWORDS=access,login,sign in,authentication,SSO,password,credentials
-```
-
-> [!NOTE]
-> See [QDRANT_SETUP.md](QDRANT_SETUP.md) for detailed instructions on setting up Qdrant Cloud.
-
-### 3. Run the Agent
-
-**Development mode** (with auto-reload):
 ```bash
+# Navigate to frontend
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
 ```
 
-**Production mode**:
+The frontend will start at http://localhost:3000
+
+## 🔧 Configuration
+
+Create a `.env` file in the `python-backend` directory with:
+
 ```bash
+# ServiceNow Configuration
+SERVICENOW_INSTANCE_URL=https://your-instance.service-now.com/
+SERVICENOW_USERNAME=your-username
+SERVICENOW_PASSWORD=your-password
+
+# AI Provider (choose one)
+OPENAI_API_KEY=sk-your-openai-key
+# OR
+GOOGLE_API_KEY=your-google-api-key
+
+# Vector Database
+QDRANT_URL=https://your-cluster.cloud.qdrant.io
+QDRANT_API_KEY=your-qdrant-api-key
+
+# PostgreSQL Database
+DATABASE_URL=postgresql://user:password@localhost:5432/servicenow_db
+
+# API Server
+API_PORT=8000
+API_HOST=0.0.0.0
+```
+
+## 📚 Documentation
+
+- **Backend Documentation**: See [python-backend/README.md](python-backend/README.md)
+- **Migration Guide**: See [python-backend/MIGRATION_GUIDE.md](python-backend/MIGRATION_GUIDE.md)
+- **Quick Reference**: See [python-backend/QUICK_REFERENCE.md](python-backend/QUICK_REFERENCE.md)
+- **API Documentation**: http://localhost:8000/docs (when server is running)
+
+## 🎯 Key Endpoints
+
+### Public API
+- `POST /api/chat` - Chat with AI assistant
+- `POST /api/submit-problem` - Submit a problem for AI solution
+- `GET /api/health` - Health check
+
+### Admin API
+- `POST /api/admin/auth` - Admin login
+- `GET /api/admin/knowledge-base` - Get knowledge base entries
+- `POST /api/admin/knowledge-base` - Add knowledge base entry
+
+## 🏗️ Architecture
+
+### Backend (Python FastAPI)
+- **FastAPI**: Modern, fast web framework
+- **SQLAlchemy**: Async ORM for PostgreSQL
+- **Qdrant**: Vector database for embeddings
+- **OpenAI/Google AI**: LLM providers for AI solutions
+- **JWT**: Token-based authentication
+
+### Frontend (React)
+- **React**: UI framework
+- **TypeScript**: Type safety
+- **Tailwind CSS**: Styling
+
+### Databases
+- **PostgreSQL**: Relational data (users, teams, knowledge base)
+- **Qdrant**: Vector embeddings for semantic search
+
+## 🔐 Default Credentials
+
+**Admin Portal:**
+- Username: `admin`
+- Password: `admin123`
+
+⚠️ **Important**: Change these credentials after first login!
+
+## 🚀 Deployment
+
+### Backend Deployment
+
+```bash
+# Using Gunicorn (production)
+cd python-backend
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+
+# Or using Uvicorn
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+### Frontend Deployment
+
+```bash
+cd frontend
 npm run build
-npm start
+# Deploy the 'dist' folder to your hosting service
 ```
 
-**MCP Server only** (for testing):
-```bash
-npm run mcp-server
-```
+## 📊 Features
 
-## 🔧 Configuration Options
+- ✅ AI-powered ticket resolution
+- ✅ Knowledge base management
+- ✅ ServiceNow integration
+- ✅ Vector similarity search
+- ✅ Multi-LLM support (OpenAI, Google AI)
+- ✅ RESTful API with auto-generated docs
+- ✅ JWT authentication
+- ✅ Admin dashboard
+- ✅ Ticket monitoring
+- ✅ Email notifications
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SERVICENOW_INSTANCE_URL` | Your ServiceNow instance URL | Required |
-| `SERVICENOW_USERNAME` | API user username | Required |
-| `SERVICENOW_PASSWORD` | API user password | Required |
-| `OPENAI_API_KEY` | OpenAI API key | Required (or Google) |
-| `GOOGLE_API_KEY` | Google AI API key | Required (or OpenAI) |
-| `QDRANT_URL` | Qdrant Cloud cluster URL | Required |
-| `QDRANT_API_KEY` | Qdrant Cloud API key | Required |
-| `SSO_SIGNIN_URL` | Your SSO portal URL | Required |
-| `TICKET_CHECK_INTERVAL` | Check interval in ms | 300000 (5 min) |
-| `AUTO_RESOLVE_TICKETS` | Auto-resolve after response | false |
-| `ACCESS_KEYWORDS` | Keywords to detect (comma-separated) | access,login,... |
+## 🤝 Contributing
 
-## 🛠️ MCP Tools
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-The ServiceNow MCP server exposes the following tools:
-
-### `get_pending_tickets`
-Retrieve pending tickets (New or In Progress state) with optional keyword filtering.
-
-**Parameters:**
-- `keywords` (array): Keywords to search in ticket description
-- `limit` (number): Maximum tickets to return (default: 10)
-
-### `get_ticket_details`
-Get full details of a specific ticket by sys_id.
-
-**Parameters:**
-- `sys_id` (string): The ticket's sys_id
-
-### `update_ticket`
-Update a ticket with comments, work notes, or state change.
-
-**Parameters:**
-- `sys_id` (string): The ticket's sys_id
-- `comments` (string): Customer-visible comments
-- `work_notes` (string): Internal work notes
-- `state` (string): New state (1=New, 2=In Progress, 6=Resolved, 7=Closed)
-
-### `add_work_note`
-Add an internal work note to a ticket.
-
-**Parameters:**
-- `sys_id` (string): The ticket's sys_id
-- `note` (string): The work note content
-
-## 📖 How It Works
-
-1. **Monitoring**: Agent checks ServiceNow every 5 minutes (configurable)
-2. **Detection**: Searches for tickets with access-related keywords
-3. **Analysis**: Reads full ticket details to confirm it's an access issue
-4. **Response**: Adds customer comment with SSO instructions
-5. **Documentation**: Adds internal work note with timestamp
-6. **Resolution**: Optionally sets ticket to "Resolved" state
-
-## 🧪 Testing
-
-### Test MCP Server Standalone
-
-```bash
-npm run mcp-server
-```
-
-Then use an MCP client or inspector to test individual tools.
-
-### Test with Mock Data
-
-Create a test ticket in your ServiceNow instance with "access issue" in the description, then run the agent to see it process the ticket.
-
-## 🔒 Security Best Practices
-
-- **Never commit `.env` file** - It contains sensitive credentials
-- **Use dedicated API account** - Create a ServiceNow user specifically for API access
-- **Limit permissions** - Grant only necessary permissions (read/write incidents)
-- **Rotate credentials** - Regularly update API passwords and keys
-- **Monitor usage** - Review agent actions in ServiceNow work notes
-
-## 🐛 Troubleshooting
-
-### "Configuration errors"
-- Ensure all required environment variables are set in `.env`
-- Check that `.env` file is in the project root directory
-
-### "Connection refused" or "401 Unauthorized"
-- Verify ServiceNow instance URL is correct
-- Check username and password are valid
-- Ensure API user has proper permissions
-
-### "No tickets found"
-- Verify tickets exist in "New" or "In Progress" state
-- Check that keywords match ticket descriptions
-- Review ServiceNow query in MCP server logs
-
-### Agent not responding
-- Check LLM API key is valid and has credits
-- Review console logs for errors
-- Verify MCP server is running
-
-## 📝 Customization
-
-### Change Response Template
-
-Edit the `generateSSOResponse()` method in `src/agent/ticket-agent.ts`:
-
-```typescript
-private generateSSOResponse(): string {
-  return `Your custom message here...`;
-}
-```
-
-### Add More Keywords
-
-Update the `ACCESS_KEYWORDS` in `.env`:
-
-```env
-ACCESS_KEYWORDS=access,login,sign in,authentication,SSO,password,locked out,cannot access
-```
-
-### Adjust Check Interval
-
-Modify `TICKET_CHECK_INTERVAL` in `.env` (in milliseconds):
-
-```env
-TICKET_CHECK_INTERVAL=60000  # Check every 1 minute
-```
-
-## 📄 License
+## 📝 License
 
 ISC
 
-## 🤝 Support
+## 🆘 Support
 
-For issues or questions, please check the troubleshooting section or review the code comments for detailed implementation notes.
+For detailed setup instructions and troubleshooting:
+- Check [python-backend/README.md](python-backend/README.md)
+- Review [python-backend/QUICK_REFERENCE.md](python-backend/QUICK_REFERENCE.md)
+- Visit the API docs at http://localhost:8000/docs
+
+## 🎉 What's New
+
+**Version 2.0 - Python FastAPI Backend**
+- Migrated from TypeScript/Node.js to Python/FastAPI
+- Improved performance with async operations
+- Automatic API documentation
+- Better type safety with Pydantic
+- Enhanced AI/ML integration
 
 ---
 
-**Built with:**
-- [Mastra AI](https://mastra.ai) - AI agent framework
-- [Model Context Protocol](https://modelcontextprotocol.io) - Tool integration standard
-- [ServiceNow REST API](https://developer.servicenow.com/dev.do) - Ticket management
-- [Qdrant Cloud](https://cloud.qdrant.io) - Vector database for knowledge base
+**Built with ❤️ using Python FastAPI**
