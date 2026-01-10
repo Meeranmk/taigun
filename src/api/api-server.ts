@@ -10,7 +10,6 @@ import type { KnowledgeBaseEntry } from '../knowledge-base/types.js';
 import type { ProblemSubmission } from '../rag/types.js';
 import { UserManager } from '../auth/user-manager.js';
 import { TeamManager } from '../auth/team-manager.js';
-import type { VectorDB } from '../rag/vector-db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +33,6 @@ export class APIServer {
     private port: number;
     private userManager: UserManager;
     private teamManager: TeamManager;
-    private vectorDB: VectorDB;
 
     constructor(
         knowledgeBase: KnowledgeBaseStorage,
@@ -47,9 +45,8 @@ export class APIServer {
         this.ragEngine = ragEngine;
         this.serviceNowAPI = serviceNowAPI;
         this.port = port;
-        this.vectorDB = (ragEngine as any).vectorDB;
-        this.userManager = new UserManager(this.vectorDB);
-        this.teamManager = new TeamManager(this.vectorDB);
+        this.userManager = new UserManager();
+        this.teamManager = new TeamManager();
 
         this.initializeMiddleware();
         this.initializeRoutes();
@@ -405,8 +402,7 @@ export class APIServer {
         this.app.get('/api/admin/settings', this.requireAuth, async (req: Request, res: Response) => {
             try {
                 const { SettingsManager } = await import('../config/settings-manager.js');
-                const vectorDB = (this.ragEngine as any).vectorDB;
-                const settingsManager = new SettingsManager(vectorDB);
+                const settingsManager = new SettingsManager();
 
                 const settings = await settingsManager.getSettings();
 
@@ -436,8 +432,7 @@ export class APIServer {
         this.app.put('/api/admin/settings', this.requireAuth, async (req: Request, res: Response) => {
             try {
                 const { SettingsManager } = await import('../config/settings-manager.js');
-                const vectorDB = (this.ragEngine as any).vectorDB;
-                const settingsManager = new SettingsManager(vectorDB);
+                const settingsManager = new SettingsManager();
 
                 const { serviceNowUrl, serviceNowUsername, serviceNowPassword, ticketCheckInterval, enableTicketMonitor } = req.body;
 
@@ -470,8 +465,7 @@ export class APIServer {
         this.app.post('/api/admin/settings/test-connection', this.requireAuth, async (req: Request, res: Response) => {
             try {
                 const { SettingsManager } = await import('../config/settings-manager.js');
-                const vectorDB = (this.ragEngine as any).vectorDB;
-                const settingsManager = new SettingsManager(vectorDB);
+                const settingsManager = new SettingsManager();
 
                 const { serviceNowUrl, serviceNowUsername, serviceNowPassword } = req.body;
 
@@ -621,70 +615,7 @@ export class APIServer {
             }
         });
 
-        // ===== KNOWLEDGE BASE ENDPOINTS =====
-        this.app.get('/api/admin/knowledge-base', this.requireAuth, async (req: Request, res: Response) => {
-            try {
-                const page = parseInt(req.query.page as string) || 1;
-                const limit = parseInt(req.query.limit as string) || 10;
-                const search = req.query.search as string || '';
-                const result = await this.knowledgeBase.getEntries();
-                const allEntries = result.data;
-                let filteredEntries = allEntries;
-                if (search) {
-                    const searchLower = search.toLowerCase();
-                    filteredEntries = allEntries.filter((entry: any) =>
-                        entry.problem.toLowerCase().includes(searchLower) ||
-                        entry.category.toLowerCase().includes(searchLower) ||
-                        entry.tags.some((tag: string) => tag.toLowerCase().includes(searchLower))
-                    );
-                }
-                const total = filteredEntries.length;
-                const totalPages = Math.ceil(total / limit);
-                const startIndex = (page - 1) * limit;
-                const paginatedEntries = filteredEntries.slice(startIndex, startIndex + limit);
-                res.json({ data: paginatedEntries, page, limit, total, totalPages });
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
-            }
-        });
 
-        this.app.post('/api/admin/knowledge-base', this.requireAuth, async (req: Request, res: Response) => {
-            try {
-                const { problem, solution, category, tags, priority } = req.body;
-                if (!problem || !solution || !category || !priority) {
-                    return res.status(400).json({ error: 'Missing required fields' });
-                }
-                const entry = await this.knowledgeBase.addEntry({
-                    problem, solution, category, tags: tags || [], priority,
-                    createdBy: req.session.username || 'unknown',
-                });
-                res.json(entry);
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
-            }
-        });
-
-        this.app.get('/api/admin/analytics', this.requireAuth, async (req: Request, res: Response) => {
-            try {
-                const result = await this.knowledgeBase.getEntries();
-                const entries = result.data;
-                const analytics = {
-                    totalEntries: entries.length,
-                    mostUsed: entries.sort((a: any, b: any) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5),
-                    byCategory: entries.reduce((acc: any, entry: any) => {
-                        acc[entry.category] = (acc[entry.category] || 0) + 1;
-                        return acc;
-                    }, {} as Record<string, number>),
-                    byPriority: entries.reduce((acc: any, entry: any) => {
-                        acc[entry.priority] = (acc[entry.priority] || 0) + 1;
-                        return acc;
-                    }, {} as Record<string, number>),
-                };
-                res.json(analytics);
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
-            }
-        });
         // ===== PUBLIC CHAT ENDPOINT =====
         this.app.post('/api/chat', async (req: Request, res: Response) => {
             try {
@@ -732,50 +663,7 @@ export class APIServer {
                 res.status(500).json({ error: 'Failed to generate answer' });
             }
         });
-        // ===== SETTINGS ENDPOINTS =====
-        this.app.get('/api/admin/settings', this.requireAuth, async (req: Request, res: Response) => {
-            try {
-                const settings = {
-                    serviceNowUrl: process.env.SERVICENOW_INSTANCE_URL || '',
-                    serviceNowUsername: process.env.SERVICENOW_USERNAME || '',
-                    ticketCheckInterval: 30000,
-                    enableTicketMonitor: true,
-                };
-                res.json(settings);
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
-            }
-        });
 
-        this.app.put('/api/admin/settings', this.requireAuth, async (req: Request, res: Response) => {
-            try {
-                const { serviceNowUrl, serviceNowUsername, serviceNowPassword, openaiApiKey, googleApiKey } = req.body;
-                const { SettingsManager } = await import('../config/settings-manager.js');
-                const vectorDB = this.knowledgeBase['vectorDB'];
-                const settingsManager = new SettingsManager(vectorDB);
-
-                // Update settings in ChromaDB
-                const updates: any = {};
-                if (serviceNowUrl) updates.serviceNowUrl = serviceNowUrl;
-                if (serviceNowUsername) updates.serviceNowUsername = serviceNowUsername;
-                if (serviceNowPassword) updates.serviceNowPassword = serviceNowPassword;
-                if (openaiApiKey) updates.openaiApiKey = openaiApiKey;
-                if (googleApiKey) updates.googleApiKey = googleApiKey;
-
-                await settingsManager.updateSettings(updates);
-
-                // Also update process.env for immediate effect
-                if (openaiApiKey) process.env.OPENAI_API_KEY = openaiApiKey;
-                if (googleApiKey) process.env.GOOGLE_API_KEY = googleApiKey;
-                if (serviceNowUrl) process.env.SERVICENOW_INSTANCE_URL = serviceNowUrl;
-                if (serviceNowUsername) process.env.SERVICENOW_USERNAME = serviceNowUsername;
-                if (serviceNowPassword) process.env.SERVICENOW_PASSWORD = serviceNowPassword;
-
-                res.json({ success: true, message: 'Settings saved successfully! Changes are now active.' });
-            } catch (error: any) {
-                res.status(500).json({ error: error.message });
-            }
-        });
 
         // ===== TEST ENDPOINTS =====
 

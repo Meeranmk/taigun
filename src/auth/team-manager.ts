@@ -1,13 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { VectorDB } from '../rag/vector-db.js';
+import { TeamRepository } from '../database/repositories/team-repository.js';
 import type { Team, CreateTeamInput } from './types.js';
 import { encrypt, decrypt } from './crypto-utils.js';
 
 export class TeamManager {
-    private vectorDB: VectorDB;
+    private teamRepository: TeamRepository;
 
-    constructor(vectorDB: VectorDB) {
-        this.vectorDB = vectorDB;
+    constructor() {
+        this.teamRepository = new TeamRepository();
     }
 
     /**
@@ -31,8 +31,8 @@ export class TeamManager {
             updatedAt: new Date().toISOString(),
         };
 
-        // Store in ChromaDB
-        await this.vectorDB.addTeam(team);
+        // Store in PostgreSQL
+        await this.teamRepository.create(team);
 
         return team;
     }
@@ -41,7 +41,7 @@ export class TeamManager {
      * Get team by ID
      */
     async getTeamById(teamId: string): Promise<Team | null> {
-        return await this.vectorDB.getTeamById(teamId);
+        return await this.teamRepository.findById(teamId);
     }
 
     /**
@@ -79,35 +79,32 @@ export class TeamManager {
             serviceNowPasswordEncrypted = encrypt(updates.serviceNowPassword);
         }
 
-        const updatedTeam: Team = {
-            ...team,
-            name: updates.name || team.name,
-            serviceNowUrl: updates.serviceNowUrl || team.serviceNowUrl,
-            serviceNowUsername: updates.serviceNowUsername || team.serviceNowUsername,
-            serviceNowPasswordEncrypted,
-            settings: {
-                ticketCheckInterval: updates.settings?.ticketCheckInterval || team.settings.ticketCheckInterval,
-                enableTicketMonitor: updates.settings?.enableTicketMonitor ?? team.settings.enableTicketMonitor,
-            },
-            updatedAt: new Date().toISOString(),
+        const updatedTeam: Partial<Team> = {
+            name: updates.name,
+            serviceNowUrl: updates.serviceNowUrl,
+            serviceNowUsername: updates.serviceNowUsername,
+            serviceNowPasswordEncrypted: updates.serviceNowPassword ? serviceNowPasswordEncrypted : undefined,
+            settings: updates.settings ? {
+                ticketCheckInterval: updates.settings.ticketCheckInterval ?? team.settings.ticketCheckInterval,
+                enableTicketMonitor: updates.settings.enableTicketMonitor ?? team.settings.enableTicketMonitor,
+            } : undefined,
         };
 
-        await this.vectorDB.updateTeam(updatedTeam);
-        return updatedTeam;
+        return await this.teamRepository.update(teamId, updatedTeam);
     }
 
     /**
      * Delete team
      */
     async deleteTeam(teamId: string): Promise<boolean> {
-        return await this.vectorDB.deleteTeam(teamId);
+        return await this.teamRepository.delete(teamId);
     }
 
     /**
      * Get all teams
      */
     async getAllTeams(): Promise<Team[]> {
-        return await this.vectorDB.getAllTeams();
+        return await this.teamRepository.findAll();
     }
 
     /**

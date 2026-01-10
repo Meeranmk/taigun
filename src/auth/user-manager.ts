@@ -1,15 +1,15 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
-import type { VectorDB } from '../rag/vector-db.js';
+import { UserRepository } from '../database/repositories/user-repository.js';
 import type { User, CreateUserInput } from './types.js';
 
 const SALT_ROUNDS = 10;
 
 export class UserManager {
-    private vectorDB: VectorDB;
+    private userRepository: UserRepository;
 
-    constructor(vectorDB: VectorDB) {
-        this.vectorDB = vectorDB;
+    constructor() {
+        this.userRepository = new UserRepository();
     }
 
     /**
@@ -36,8 +36,8 @@ export class UserManager {
             updatedAt: new Date().toISOString(),
         };
 
-        // Store in ChromaDB
-        await this.vectorDB.addUser(user);
+        // Store in PostgreSQL
+        await this.userRepository.create(user);
 
         return user;
     }
@@ -46,14 +46,14 @@ export class UserManager {
      * Get user by username
      */
     async getUserByUsername(username: string): Promise<User | null> {
-        return await this.vectorDB.getUserByUsername(username);
+        return await this.userRepository.findByUsername(username);
     }
 
     /**
      * Get user by ID
      */
     async getUserById(userId: string): Promise<User | null> {
-        return await this.vectorDB.getUserById(userId);
+        return await this.userRepository.findById(userId);
     }
 
     /**
@@ -82,63 +82,36 @@ export class UserManager {
      * Get all users for a team
      */
     async getUsersByTeam(teamId: string): Promise<User[]> {
-        return await this.vectorDB.getUsersByTeam(teamId);
+        return await this.userRepository.findByTeamId(teamId);
     }
 
     /**
      * Update user
      */
     async updateUser(userId: string, updates: Partial<Omit<User, 'id' | 'createdAt' | 'passwordHash'>>): Promise<User | null> {
-        const user = await this.getUserById(userId);
-        if (!user) {
-            return null;
-        }
-
-        const updatedUser: User = {
-            ...user,
-            ...updates,
-            id: user.id,
-            createdAt: user.createdAt,
-            passwordHash: user.passwordHash,
-            updatedAt: new Date().toISOString(),
-        };
-
-        await this.vectorDB.updateUser(updatedUser);
-        return updatedUser;
+        return await this.userRepository.update(userId, updates);
     }
 
     /**
      * Update user password
      */
     async updatePassword(userId: string, newPassword: string): Promise<boolean> {
-        const user = await this.getUserById(userId);
-        if (!user) {
-            return false;
-        }
-
         const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-
-        const updatedUser: User = {
-            ...user,
-            passwordHash,
-            updatedAt: new Date().toISOString(),
-        };
-
-        await this.vectorDB.updateUser(updatedUser);
-        return true;
+        const result = await this.userRepository.update(userId, { passwordHash });
+        return result !== null;
     }
 
     /**
      * Delete user
      */
     async deleteUser(userId: string): Promise<boolean> {
-        return await this.vectorDB.deleteUser(userId);
+        return await this.userRepository.delete(userId);
     }
 
     /**
      * Get all users
      */
     async getAllUsers(): Promise<User[]> {
-        return await this.vectorDB.getAllUsers();
+        return await this.userRepository.findAll();
     }
 }

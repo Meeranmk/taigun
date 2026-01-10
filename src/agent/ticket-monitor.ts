@@ -1,12 +1,12 @@
 import type { RAGEngine } from '../rag/rag-engine.js';
 import type { ProblemSubmission } from '../rag/types.js';
-import type { VectorDB } from '../rag/vector-db.js';
+import { ProcessedTicketsRepository } from '../database/repositories/processed-tickets-repository.js';
 import { EmailService } from '../services/email-service.js';
 
 export class TicketMonitor {
     private ragEngine: RAGEngine;
     private serviceNowAPI: any;
-    private vectorDB: VectorDB;
+    private processedTicketsRepo: ProcessedTicketsRepository;
     private checkInterval: number;
     private isRunning: boolean = false;
     private intervalId: NodeJS.Timeout | null = null;
@@ -15,22 +15,21 @@ export class TicketMonitor {
     constructor(
         ragEngine: RAGEngine,
         serviceNowAPI: any,
-        vectorDB: VectorDB,
         checkInterval: number = 60000 // Default: 1 minute
     ) {
         this.ragEngine = ragEngine;
         this.serviceNowAPI = serviceNowAPI;
-        this.vectorDB = vectorDB;
+        this.processedTicketsRepo = new ProcessedTicketsRepository();
         this.checkInterval = checkInterval;
         this.emailService = new EmailService();
     }
 
     /**
-     * Initialize the ticket monitor and load processed tickets from ChromaDB
+     * Initialize the ticket monitor and load processed tickets from PostgreSQL
      */
     async initialize(): Promise<void> {
-        const count = await this.vectorDB.getAllProcessedTicketIds();
-        console.log(`   📂 Loaded ${count.length} processed tickets from ChromaDB`);
+        const count = await this.processedTicketsRepo.count();
+        console.log(`   📂 Loaded ${count} processed tickets from PostgreSQL`);
     }
 
 
@@ -97,12 +96,11 @@ export class TicketMonitor {
                 return;
             }
 
-            // Get processed ticket IDs from ChromaDB
-            const processedIds = await this.vectorDB.getAllProcessedTicketIds();
-            const processedSet = new Set(processedIds);
+            // Get processed ticket count from PostgreSQL
+            const processedCount = await this.processedTicketsRepo.count();
 
             console.log(`   Found ${tickets.length} pending tickets`);
-            console.log(`   Already processed: ${processedSet.size} tickets`);
+            console.log(`   Already processed: ${processedCount} tickets`);
 
             // Process each ticket
             for (const ticket of tickets) {
@@ -119,7 +117,7 @@ export class TicketMonitor {
     private async processTicket(ticket: any): Promise<void> {
         try {
             // Skip if already processed
-            const isProcessed = await this.vectorDB.isTicketProcessed(ticket.sys_id);
+            const isProcessed = await this.processedTicketsRepo.isProcessed(ticket.sys_id);
             if (isProcessed) {
                 console.log(`   ⏭️  Skipping ticket ${ticket.number} (${ticket.sys_id}) - already processed`);
                 return;
@@ -158,12 +156,12 @@ export class TicketMonitor {
                 work_notes: `AI-generated solution using RAG system. Confidence: ${(solution.confidence * 100).toFixed(0)}%. Similar cases found: ${solution.similarCases.length}`,
             });
 
-            // Mark as processed in ChromaDB
-            await this.vectorDB.markTicketAsProcessed(ticket.sys_id, {
-                processedAt: new Date().toISOString(),
-                confidence: solution.confidence,
-                solutionUsed: solution.similarCases.length > 0 ? solution.similarCases[0].id : 'generated',
-                problem: ticket.short_description || ticket.description,
+            // Mark as processed in PostgreSQL
+            await this.processedTicketsRepo.create({
+                ticketSysId: ticket.sys_id,
+                ticketNumber: ticket.number,
+                solutionProvided: solutionText,
+                confidenceScore: solution.confidence,
             });
 
             console.log(`      ✅ Ticket ${ticket.number} processed successfully`);
@@ -213,10 +211,10 @@ export class TicketMonitor {
      * Get monitor status
      */
     async getStatus(): Promise<{ isRunning: boolean; processedCount: number; checkInterval: number }> {
-        const processedIds = await this.vectorDB.getAllProcessedTicketIds();
+        const processedCount = await this.processedTicketsRepo.count();
         return {
             isRunning: this.isRunning,
-            processedCount: processedIds.length,
+            processedCount,
             checkInterval: this.checkInterval,
         };
     }
@@ -225,7 +223,7 @@ export class TicketMonitor {
      * Clear processed tickets cache
      */
     async clearCache(): Promise<void> {
-        await this.vectorDB.clearProcessedTickets();
-        console.log('   \u2705 Processed tickets cache cleared');
+        await this.processedTicketsRepo.clear();
+        console.log('   ✅ Processed tickets cache cleared');
     }
 }
