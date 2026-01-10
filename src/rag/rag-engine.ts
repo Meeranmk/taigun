@@ -53,8 +53,8 @@ export class RAGEngine {
             this.embeddingModel = null;
         }
 
-        // Initialize Vector Database (Qdrant Cloud)
-        this.vectorDB = new VectorDB();
+        // Use the VectorDB from KnowledgeBaseStorage to ensure consistency
+        this.vectorDB = (knowledgeBase as any).vectorDB || new VectorDB();
 
         // Initialize Batch Embedder
         this.batchEmbedder = new BatchEmbedder(
@@ -67,8 +67,8 @@ export class RAGEngine {
     /**
      * Initialize vector database and embed knowledge base
      */
-    async initialize(): Promise<void> {
-        await this.vectorDB.initialize();
+    async initialize(vectorSize?: number): Promise<void> {
+        await this.vectorDB.initialize(vectorSize);
         await this.batchEmbedder.embedKnowledgeBase();
     }
 

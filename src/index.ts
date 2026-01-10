@@ -234,17 +234,34 @@ async function main() {
     console.log('🤖 ServiceNow RAG-Based Problem Resolution System');
     console.log('================================================\n');
 
-    // Initialize Vector Database first (needed to load settings from database)
-    console.log('🔧 Initializing Vector Database...');
+    // Initialize PostgreSQL Database
+    console.log('🔧 Initializing PostgreSQL Database...');
+    const { initializeDatabase, checkDatabaseSchema } = await import('./database/init-database.js');
+
+    // Check if schema exists, if not create it
+    const schemaExists = await checkDatabaseSchema();
+    if (!schemaExists) {
+        console.log('   Creating database schema...');
+        await initializeDatabase();
+    } else {
+        // Just initialize connection
+        const PostgresClient = (await import('./database/postgres-client.js')).default;
+        await PostgresClient.initialize();
+        console.log('✅ PostgreSQL connected');
+    }
+    console.log('');
+
+    // Initialize Vector Database (for AI embeddings only)
+    console.log('🔧 Initializing Qdrant Vector Database (for AI embeddings)...');
     const { VectorDB } = await import('./rag/vector-db.js');
     const vectorDB = new VectorDB();
-    await vectorDB.initialize();
-    console.log('✅ Vector Database initialized\n');
+    // We will initialize this later after we know the embedding model and vector size
+    console.log('✅ Vector Database client created\n');
 
     // Try to load settings from database
-    console.log('🔍 Checking for settings in database...');
+    console.log('🔍 Checking for settings in PostgreSQL...');
     const { SettingsManager } = await import('./config/settings-manager.js');
-    const settingsManager = new SettingsManager(vectorDB);
+    const settingsManager = new SettingsManager();
     let dbSettings = await settingsManager.getSettingsWithPassword();
 
     // If no settings in database, try to import from .env
@@ -277,11 +294,15 @@ async function main() {
     const openaiApiKey = dbSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
 
     let embeddingModel: any = null;
+    let vectorSize = 1536; // Default for OpenAI
+
     if (openaiApiKey) {
         embeddingModel = openai.embedding('text-embedding-3-small');
+        vectorSize = 1536;
         console.log('✅ Using OpenAI for embeddings');
     } else if (googleApiKey) {
         embeddingModel = google.embedding('text-embedding-004');
+        vectorSize = 768;
         console.log('✅ Using Google for embeddings');
     } else {
         console.warn('⚠️  No LLM API key configured. AI features will not work until you configure an API key.');
@@ -298,6 +319,10 @@ async function main() {
         });
         return embedding;
     };
+
+    // Initialize Vector Database with correct size
+    await vectorDB.initialize(vectorSize);
+    console.log('✅ Vector Database initialized\n');
 
     // Initialize Knowledge Base with VectorDB
     console.log('📚 Initializing Knowledge Base...');
@@ -328,7 +353,7 @@ async function main() {
         googleApiKey: googleApiKey,
         openaiApiKey: openaiApiKey,
     });
-    await ragEngine.initialize();
+    await ragEngine.initialize(vectorSize);
     console.log('✅ RAG Engine initialized\n');
 
     // Initialize API Server
@@ -348,7 +373,6 @@ async function main() {
         const ticketMonitor = new TicketMonitor(
             ragEngine,
             serviceNowAPI,
-            vectorDB,
             ticketCheckInterval
         );
 

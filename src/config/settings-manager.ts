@@ -1,20 +1,35 @@
-import type { VectorDB } from '../rag/vector-db.js';
+import { SettingsRepository, type SettingsData } from '../database/repositories/settings-repository.js';
 import type { AppSettings, UpdateSettingsInput } from './types.js';
 import { encrypt, decrypt } from '../auth/crypto-utils.js';
 
 export class SettingsManager {
-    private vectorDB: VectorDB;
-    private readonly SETTINGS_ID = 'global_settings';
+    private settingsRepository: SettingsRepository;
+    private readonly SETTINGS_KEY = 'global_settings';
 
-    constructor(vectorDB: VectorDB) {
-        this.vectorDB = vectorDB;
+    constructor() {
+        this.settingsRepository = new SettingsRepository();
     }
 
     /**
      * Get current settings
      */
     async getSettings(): Promise<AppSettings | null> {
-        return await this.vectorDB.getSettings(this.SETTINGS_ID);
+        const data = await this.settingsRepository.findByKey(this.SETTINGS_KEY);
+        if (!data) {
+            return null;
+        }
+
+        return {
+            id: data.id!,
+            serviceNowUrl: data.serviceNowUrl || '',
+            serviceNowUsername: data.serviceNowUsername || '',
+            serviceNowPasswordEncrypted: data.serviceNowPasswordEncrypted || '',
+            googleApiKeyEncrypted: data.googleApiKeyEncrypted,
+            openaiApiKeyEncrypted: data.openaiApiKeyEncrypted,
+            ticketCheckInterval: parseInt(data.value || '30000'),
+            enableTicketMonitor: data.value !== 'false',
+            updatedAt: data.updatedAt || new Date().toISOString(),
+        };
     }
 
     /**
@@ -66,20 +81,32 @@ export class SettingsManager {
             openaiApiKeyEncrypted = encrypt(input.openaiApiKey);
         }
 
-        const settings: AppSettings = {
-            id: this.SETTINGS_ID,
+        const ticketCheckInterval = input.ticketCheckInterval ?? existing?.ticketCheckInterval ?? 30000;
+        const enableTicketMonitor = input.enableTicketMonitor ?? existing?.enableTicketMonitor ?? true;
+
+        const settingsData: SettingsData = {
+            key: this.SETTINGS_KEY,
+            value: ticketCheckInterval.toString(),
             serviceNowUrl: input.serviceNowUrl || existing?.serviceNowUrl || '',
             serviceNowUsername: input.serviceNowUsername || existing?.serviceNowUsername || '',
             serviceNowPasswordEncrypted,
             googleApiKeyEncrypted,
             openaiApiKeyEncrypted,
-            ticketCheckInterval: input.ticketCheckInterval ?? existing?.ticketCheckInterval ?? 30000,
-            enableTicketMonitor: input.enableTicketMonitor ?? existing?.enableTicketMonitor ?? true,
-            updatedAt: new Date().toISOString(),
         };
 
-        await this.vectorDB.saveSettings(settings);
-        return settings;
+        const saved = await this.settingsRepository.upsert(settingsData);
+
+        return {
+            id: saved.id!,
+            serviceNowUrl: saved.serviceNowUrl || '',
+            serviceNowUsername: saved.serviceNowUsername || '',
+            serviceNowPasswordEncrypted: saved.serviceNowPasswordEncrypted || '',
+            googleApiKeyEncrypted: saved.googleApiKeyEncrypted,
+            openaiApiKeyEncrypted: saved.openaiApiKeyEncrypted,
+            ticketCheckInterval,
+            enableTicketMonitor,
+            updatedAt: saved.updatedAt || new Date().toISOString(),
+        };
     }
 
     /**
@@ -129,7 +156,7 @@ export class SettingsManager {
             googleApiKey: process.env.GOOGLE_API_KEY,
             openaiApiKey: process.env.OPENAI_API_KEY,
             ticketCheckInterval: parseInt(process.env.TICKET_CHECK_INTERVAL || '30000'),
-            enableTicketMonitor: process.env.TICKET_MONITOR_ENABLED === 'true',
+            enableTicketMonitor: process.env.TICKET_MONITOR_ENABLED !== 'false',
         });
 
         console.log('✅ Imported settings from .env file');

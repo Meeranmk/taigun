@@ -78,7 +78,7 @@ export class VectorDB {
     /**
      * Initialize Qdrant client and collections
      */
-    async initialize(): Promise<void> {
+    async initialize(vectorSize: number = 1536): Promise<void> {
         try {
             console.log('🔧 Initializing Qdrant Cloud...');
 
@@ -93,9 +93,11 @@ export class VectorDB {
             // Test connection
             await this.client.getCollections();
 
-            // Create or verify collections
-            await this.createCollectionIfNotExists(this.KB_COLLECTION, 1536, 'Knowledge base entries with embeddings');
-            await this.createCollectionIfNotExists(this.TICKET_COLLECTION, 1536, 'Historical ServiceNow tickets with embeddings');
+            // Create or verify collections with the specified vector size
+            await this.createCollectionIfNotExists(this.KB_COLLECTION, vectorSize, 'Knowledge base entries with embeddings');
+            await this.createCollectionIfNotExists(this.TICKET_COLLECTION, vectorSize, 'Historical ServiceNow tickets with embeddings');
+
+            // These collections don't need embeddings (dummy vector size 1)
             await this.createCollectionIfNotExists(this.PROCESSED_TICKETS_COLLECTION, 1, 'Processed ServiceNow tickets tracking');
             await this.createCollectionIfNotExists(this.USERS_COLLECTION, 1, 'User accounts for multi-tenant access');
             await this.createCollectionIfNotExists(this.TEAMS_COLLECTION, 1, 'Team configurations and ServiceNow credentials');
@@ -110,7 +112,7 @@ export class VectorDB {
             const ticketCount = await this.getCollectionCount(this.TICKET_COLLECTION);
             const processedCount = await this.getCollectionCount(this.PROCESSED_TICKETS_COLLECTION);
 
-            console.log(`✅ Qdrant Cloud initialized`);
+            console.log(`✅ Qdrant Cloud initialized (Vector Size: ${vectorSize})`);
             console.log(`   Knowledge Base: ${kbCount} entries`);
             console.log(`   ServiceNow Tickets: ${ticketCount} entries`);
             console.log(`   Processed Tickets: ${processedCount} tracked`);
@@ -136,9 +138,34 @@ export class VectorDB {
 
         try {
             // Check if collection exists
-            await this.client.getCollection(collectionName);
-        } catch {
-            // Collection doesn't exist, create it
+            const info = await this.client.getCollection(collectionName);
+
+            // Check if vector size matches (only for collections with embeddings)
+            if (vectorSize > 1) {
+                let currentSize = 0;
+                const vectors = info.config.params.vectors;
+
+                if (vectors) {
+                    if ((vectors as any).size) {
+                        // Single vector format
+                        currentSize = (vectors as any).size;
+                    } else if (typeof vectors === 'object') {
+                        // Named vectors format - check the first one
+                        const firstVector = Object.values(vectors)[0];
+                        if (firstVector && (firstVector as any).size) {
+                            currentSize = (firstVector as any).size;
+                        }
+                    }
+                }
+
+                if (currentSize > 0 && currentSize !== vectorSize) {
+                    console.warn(`⚠️  Collection ${collectionName} has vector size ${currentSize}, but we need ${vectorSize}. Recreating...`);
+                    await this.client.deleteCollection(collectionName);
+                    throw new Error('Recreate'); // Trigger catch block to recreate
+                }
+            }
+        } catch (error: any) {
+            // Collection doesn't exist or needs recreation, create it
             await this.client.createCollection(collectionName, {
                 vectors: {
                     size: vectorSize,
