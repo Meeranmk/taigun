@@ -2,7 +2,7 @@
 Quick start script to run the FastAPI server
 """
 import uvicorn
-from app.config import get_settings
+from app.core.config import get_settings
 
 if __name__ == "__main__":
     settings = get_settings()

@@ -1,0 +1,150 @@
+"""
+Knowledge Base Service
+Handles database operations for KB entries and syncs with Vector DB
+"""
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import func, or_
+from typing import List, Optional, Dict, Any
+from app.models.sql import KnowledgeBase
+from app.models.schemas import CreateKBRequest, UpdateKBRequest, KnowledgeBaseEntry
+from app.services.vector_service import VectorDB
+import uuid
+import json
+from datetime import datetime
+
+class KBService:
+    def __init__(self, db: AsyncSession, vector_db: Optional[VectorDB] = None):
+        self.db = db
+        self.vector_db = vector_db
+
+    async def create(self, entry_in: CreateKBRequest) -> KnowledgeBase:
+        # Convert Pydantic model to dict for storage (solution is JSON)
+        solution_dict = [step.dict() for step in entry_in.solution]
+        
+        kb_entry = KnowledgeBase(
+            id=str(uuid.uuid4()),
+            problem=entry_in.problem,
+            solution=solution_dict,
+            category=entry_in.category,
+            tags=entry_in.tags,
+            priority=entry_in.priority,
+            created_by=entry_in.created_by,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            usage_count=0,
+            effectiveness=0.0
+        )
+        self.db.add(kb_entry)
+        await self.db.commit()
+        await self.db.refresh(kb_entry)
+
+        # Sync to Vector DB if available
+        if self.vector_db:
+             # We need to generate embedding first. 
+             # Is it responsibility of KBService? Or does VectorDB do it?
+             # VectorDB.add_kb_entry takes embedding.
+             # Who generates embedding? RAGEngine.
+             # This circular dependency (Service -> RAG -> Vector) is tricky.
+             # For now, let's just save to DB. The embedding sync might need to happen explicitly
+             # or we inject RAGEngine too.
+             # TS backend called `embeddings.create` then `vectorDB.addKBEntry`.
+             pass 
+
+        return kb_entry
+
+    async def get_by_id(self, entry_id: str) -> Optional[KnowledgeBase]:
+        result = await self.db.execute(select(KnowledgeBase).where(KnowledgeBase.id == entry_id))
+        return result.scalars().first()
+
+    async def get_all(
+        self, 
+        category: Optional[str] = None,
+        search_query: Optional[str] = None
+    ) -> List[KnowledgeBase]:
+        query = select(KnowledgeBase)
+        
+        if category:
+            query = query.where(KnowledgeBase.category == category)
+            
+        if search_query:
+            search_term = f"%{search_query}%"
+            # simple text match, not semantic for this list view
+            query = query.where(
+                or_(
+                    KnowledgeBase.problem.ilike(search_term),
+                    # Tags search is tricky in SQLA/JSON depending on backend dialect
+                    # For now just title/problem
+                )
+            )
+            
+        query = query.order_by(KnowledgeBase.created_at.desc())
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def update(self, entry_id: str, entry_in: UpdateKBRequest) -> Optional[KnowledgeBase]:
+        entry = await self.get_by_id(entry_id)
+        if not entry:
+            return None
+        
+        update_data = entry_in.dict(exclude_unset=True)
+        if "solution" in update_data:
+             update_data["solution"] = [step.dict() for step in update_data["solution"]]
+        
+        update_data["updated_at"] = datetime.utcnow()
+        
+        for key, value in update_data.items():
+            setattr(entry, key, value)
+            
+        self.db.add(entry)
+        await self.db.commit()
+        await self.db.refresh(entry)
+        
+        # TODO: Sync to Vector DB
+        
+        return entry
+
+    async def delete(self, entry_id: str) -> bool:
+        entry = await self.get_by_id(entry_id)
+        if not entry:
+            return False
+        
+        await self.db.delete(entry)
+        await self.db.commit()
+        
+        # Sync Vector DB deletion
+        if self.vector_db:
+            await self.vector_db.delete_kb_entry(entry_id)
+            
+        return True
+
+    async def get_analytics(self) -> Dict[str, Any]:
+        # Total Entries
+        total_q = select(func.count(KnowledgeBase.id))
+        total = (await self.db.execute(total_q)).scalar() or 0
+
+        # By Category
+        cat_q = select(KnowledgeBase.category, func.count(KnowledgeBase.id)).group_by(KnowledgeBase.category)
+        cat_result = (await self.db.execute(cat_q)).all()
+        by_category = {r[0]: r[1] for r in cat_result}
+
+        # By Priority
+        prio_q = select(KnowledgeBase.priority, func.count(KnowledgeBase.id)).group_by(KnowledgeBase.priority)
+        prio_result = (await self.db.execute(prio_q)).all()
+        by_priority = {r[0]: r[1] for r in prio_result}
+
+        # Most Used
+        most_used_q = select(KnowledgeBase).order_by(KnowledgeBase.usage_count.desc()).limit(10)
+        most_used = (await self.db.execute(most_used_q)).scalars().all()
+
+        # Most Effective
+        most_eff_q = select(KnowledgeBase).where(KnowledgeBase.effectiveness > 0).order_by(KnowledgeBase.effectiveness.desc()).limit(10)
+        most_effective = (await self.db.execute(most_eff_q)).scalars().all()
+
+        return {
+            "totalEntries": total,
+            "byCategory": by_category,
+            "byPriority": by_priority,
+            "mostUsed": most_used,
+            "mostEffective": most_effective
+        }

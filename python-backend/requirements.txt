@@ -21,7 +21,7 @@ requests==2.31.0
 
 # AI/ML Libraries
 openai==1.10.0
-google-generativeai==0.3.2
+google-genai==1.0.0
 qdrant-client==1.7.3
 
 # Email

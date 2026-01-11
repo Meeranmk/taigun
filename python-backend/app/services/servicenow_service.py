@@ -3,7 +3,7 @@ ServiceNow API Client
 """
 import httpx
 from typing import List, Dict, Any, Optional
-from app.types import ServiceNowConfig
+from app.models.schemas import ServiceNowConfig
 
 
 class ServiceNowAPI:

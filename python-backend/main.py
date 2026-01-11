@@ -1,32 +1,16 @@
 """
 Main FastAPI Application
 """
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from typing import Optional
-from datetime import timedelta
-
-from app.config import get_settings
-from app.types import (
-    LoginRequest,
-    CreateUserRequest,
-    ChangePasswordRequest,
-    ProblemSubmission,
-    ChatRequest,
-    ChatResponse
-)
-from app.auth import (
-    verify_password,
-    get_password_hash,
-    create_access_token,
-    decode_access_token
-)
-from app.database import init_db
-from app.vector_db import VectorDB
-from app.rag_engine import RAGEngine
-from app.servicenow_api import ServiceNowAPI
-from app.types import ServiceNowConfig
+from app.core.config import get_settings
+from app.core.database import init_db
+from app.services.vector_service import VectorDB
+from app.services.rag_service import RAGEngine
+from app.services.servicenow_service import ServiceNowAPI
+from app.models.schemas import ServiceNowConfig
+from app.core import dependencies
+from app.routers import api_router
 
 settings = get_settings()
 
@@ -52,17 +36,9 @@ if settings.enable_cors:
         allow_headers=["*"],
     )
 
-# Global instances (will be initialized on startup)
-vector_db: Optional[VectorDB] = None
-rag_engine: Optional[RAGEngine] = None
-servicenow_api: Optional[ServiceNowAPI] = None
-
-
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global vector_db, rag_engine, servicenow_api
-    
     print("🤖 Taigun - ServiceNow AI Agent")
     print("=" * 50)
     
@@ -78,22 +54,22 @@ async def startup_event():
     # Initialize Vector Database (optional)
     print("🔧 Initializing Qdrant Vector Database...")
     try:
-        vector_db = VectorDB()
+        # Create and store VectorDB instance
+        dependencies.vector_db = VectorDB()
         
         # Determine vector size based on LLM provider
         vector_size = 1536 if settings.openai_api_key else 768
-        await vector_db.initialize(vector_size)
+        await dependencies.vector_db.initialize(vector_size)
         print("✅ Vector Database initialized\n")
         
-        # Initialize RAG Engine
+        # Initialize RAG Engine and store instance
         print("🧠 Initializing RAG Engine...")
-        rag_engine = RAGEngine(vector_db)
-        await rag_engine.initialize(vector_size)
+        dependencies.rag_engine = RAGEngine(dependencies.vector_db)
+        await dependencies.rag_engine.initialize(vector_size)
         print("✅ RAG Engine initialized\n")
     except Exception as e:
         print(f"⚠️  Vector Database/RAG Engine initialization failed: {e}")
         print("⚠️  Continuing without AI features\n")
-    print("✅ RAG Engine initialized\n")
     
     # Initialize ServiceNow API
     if settings.servicenow_instance_url and settings.servicenow_username:
@@ -103,11 +79,11 @@ async def startup_event():
             username=settings.servicenow_username,
             password=settings.servicenow_password
         )
-        servicenow_api = ServiceNowAPI(servicenow_config)
+        dependencies.servicenow_api = ServiceNowAPI(servicenow_config)
         
         # Test connection
         try:
-            result = await servicenow_api.get_pending_tickets(keywords=[], limit=1)
+            result = await dependencies.servicenow_api.get_pending_tickets(keywords=[], limit=1)
             if result.get("success"):
                 print("✅ Connected to ServiceNow\n")
             else:
@@ -124,165 +100,8 @@ async def startup_event():
     print("")
 
 
-# ===== HEALTH CHECK =====
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "ok",
-        "timestamp": "2026-01-10T22:13:38+05:30"
-    }
-
-
-# ===== USER ENDPOINTS =====
-
-@app.post("/api/submit-problem")
-async def submit_problem(submission: ProblemSubmission):
-    """Submit a problem and get AI-generated solution"""
-    if not rag_engine:
-        raise HTTPException(
-            status_code=500,
-            detail="RAG engine not initialized"
-        )
-    
-    try:
-        solution = await rag_engine.generate_solution(
-            submission,
-            servicenow_api
-        )
-        
-        return {
-            "success": True,
-            "solution": solution.dict()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate solution: {str(e)}"
-        )
-
-
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """Public chat endpoint for getting AI answers"""
-    if not rag_engine:
-        raise HTTPException(
-            status_code=500,
-            detail="RAG engine not initialized"
-        )
-    
-    try:
-        # Use RAG engine to find answer
-        result = await rag_engine.generate_solution(
-            ProblemSubmission(problem=request.question)
-        )
-        
-        # Extract sources from similar cases
-        sources = [
-            case.problem
-            for case in result.similar_cases
-            if case.similarity > 0.7
-        ][:3]
-        
-        # Format steps into readable text
-        answer = "No solution found."
-        if result.steps:
-            answer = "\n\n".join([
-                step.description.lstrip("0123456789. ")
-                for step in result.steps
-            ])
-        
-        return ChatResponse(
-            answer=answer,
-            confidence=result.confidence,
-            sources=sources if sources else None
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate answer: {str(e)}"
-        )
-
-
-# ===== ADMIN ENDPOINTS =====
-
-@app.post("/api/admin/auth")
-async def admin_login(request: LoginRequest):
-    """Admin login endpoint"""
-    # For now, use environment variables for admin auth
-    # In production, this should check against database
-    if (request.username == settings.admin_username and 
-        request.password == settings.admin_password):
-        
-        access_token = create_access_token(
-            data={
-                "sub": request.username,
-                "role": "admin"
-            }
-        )
-        
-        return {
-            "success": True,
-            "message": "Logged in successfully",
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "username": request.username,
-                "role": "admin"
-            }
-        }
-    
-    raise HTTPException(
-        status_code=401,
-        detail="Invalid credentials"
-    )
-
-
-@app.post("/api/admin/logout")
-async def admin_logout():
-    """Admin logout endpoint"""
-    return {"success": True}
-
-
-@app.get("/api/admin/auth/status")
-async def auth_status():
-    """Check authentication status"""
-    # This would need to verify JWT token in production
-    return {
-        "isAuthenticated": True,
-        "username": "admin",
-        "role": "admin"
-    }
-
-
-# ===== TEST ENDPOINTS =====
-
-@app.get("/api/test/incident/{incident_id}")
-async def test_incident(incident_id: str):
-    """Test endpoint for incident retrieval"""
-    mock_incident = {
-        "id": incident_id,
-        "number": f"INC{incident_id.zfill(7)}",
-        "shortDescription": f"Test incident {incident_id}",
-        "description": f"This is a dummy test incident with ID: {incident_id}",
-        "state": "New",
-        "priority": "3 - Moderate",
-        "category": "Software",
-        "assignedTo": "Test User",
-        "createdAt": "2026-01-10T22:13:38+05:30",
-        "updatedAt": "2026-01-10T22:13:38+05:30",
-        "status": "open",
-        "impact": "3 - Low",
-        "urgency": "3 - Low"
-    }
-    
-    return {
-        "success": True,
-        "incident": mock_incident,
-        "message": "This is a dummy test endpoint"
-    }
-
+# Include Routers
+app.include_router(api_router)
 
 # ===== ROOT REDIRECT =====
 
@@ -295,6 +114,20 @@ async def root():
         "health": "/api/health"
     }
 
+
+# Health Check (Keep top level for easy access or move to router?)
+# Moving to main as it's a system endpoint, or could be in a 'system' router.
+# Let's keep /api/health here or add it to routers. 
+# The routers/__init__.py includes routers with prefixes.
+# I'll manually add a simple health route here or keep it.
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    pass # Wait, I should implement it.
+    return {
+        "status": "ok",
+        "timestamp": "2026-01-10T22:13:38+05:30"
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,16 +3,18 @@ RAG (Retrieval-Augmented Generation) Engine
 """
 from typing import List, Dict, Any, Optional
 import openai
-import google.generativeai as genai
-from app.types import (
+from google import genai
+from google.genai import types
+from app.models.schemas import (
     ProblemSubmission, 
     GeneratedSolution, 
     SimilarCase, 
     SolutionStep
 )
-from app.vector_db import VectorDB
-from app.config import get_settings
+from app.services.vector_service import VectorDB
+from app.core.config import get_settings
 import numpy as np
+import re
 
 settings = get_settings()
 
@@ -30,9 +32,9 @@ class RAGEngine:
             self.embedding_model = "text-embedding-3-small"
             self.vector_size = 1536
         elif settings.google_api_key:
-            genai.configure(api_key=settings.google_api_key)
+            self.client = genai.Client(api_key=settings.google_api_key)
             self.llm_provider = "google"
-            self.embedding_model = "models/embedding-001"
+            self.embedding_model = "text-embedding-004"
             self.vector_size = 768
         else:
             self.llm_provider = None
@@ -58,12 +60,13 @@ class RAGEngine:
             return response.data[0].embedding
         
         elif self.llm_provider == "google":
-            result = genai.embed_content(
+            result = self.client.models.embed_content(
                 model=self.embedding_model,
-                content=text,
-                task_type="retrieval_document"
+                contents=text,
+                config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
             )
-            return result['embedding']
+            # Handle potential different response structures
+            return result.embeddings[0].values
         
         raise Exception("Invalid LLM provider")
     
@@ -178,6 +181,8 @@ New Problem: {problem}
 
 Provide a clear, step-by-step solution. Format your response as numbered steps."""
         
+        solution_text = ""
+        
         if self.llm_provider == "openai":
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
@@ -188,12 +193,13 @@ Provide a clear, step-by-step solution. Format your response as numbered steps."
                 temperature=0.7,
                 max_tokens=500
             )
-            
             solution_text = response.choices[0].message.content
         
         elif self.llm_provider == "google":
-            model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash', 
+                contents=prompt
+            )
             solution_text = response.text
         
         # Parse solution into steps
@@ -220,7 +226,6 @@ Provide a clear, step-by-step solution. Format your response as numbered steps."
                 continue
             
             # Remove leading numbers and dots
-            import re
             cleaned_line = re.sub(r'^\d+\.\s*', '', line)
             
             if cleaned_line:

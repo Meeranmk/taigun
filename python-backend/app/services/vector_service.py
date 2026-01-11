@@ -4,8 +4,8 @@ Vector Database Client for Qdrant
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter
-from app.config import get_settings
-from app.types import KnowledgeBaseEntry
+from app.core.config import get_settings
+from app.models.schemas import KnowledgeBaseEntry
 import uuid
 
 settings = get_settings()

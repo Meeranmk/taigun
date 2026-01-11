@@ -73,10 +73,14 @@ class ProblemSubmission(BaseModel):
 
 
 class SolutionStep(BaseModel):
-    step_number: int
+    step_number: int = Field(alias="stepNumber")
+    type: Optional[str] = None
     description: str
     command: Optional[str] = None
     expected_outcome: Optional[str] = None
+    
+    class Config:
+        populate_by_name = True  # Allow both snake_case and camelCase
 
 
 class SimilarCase(BaseModel):
@@ -107,6 +111,39 @@ class KnowledgeBaseEntry(BaseModel):
     updated_at: datetime
     usage_count: int = 0
     effectiveness: float = 0.0
+    
+    class Config:
+        from_attributes = True  # Enable ORM mode for SQLAlchemy models
+
+
+class SubscriptionPlanResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    features: Dict[str, Any]
+    price: float
+    is_active: bool
+    
+    class Config:
+        from_attributes = True
+
+
+class OrganizationCreate(BaseModel):
+    name: str
+    contact_email: str
+    plan_code: str = "basic"
+
+
+class OrganizationResponse(BaseModel):
+    id: str
+    name: str
+    contact_email: Optional[str]
+    plan_id: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class User(BaseModel):
@@ -114,19 +151,24 @@ class User(BaseModel):
     username: str
     email: str
     role: str
-    team_id: str
+    organization_id: Optional[str]
+    team_id: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
 
 
 class Team(BaseModel):
     id: str
     name: str
-    service_now_url: str
-    service_now_username: str
-    settings: Dict[str, Any]
+    organization_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class LoginRequest(BaseModel):
@@ -139,6 +181,8 @@ class CreateUserRequest(BaseModel):
     email: str
     password: str
     role: str = "user"
+    organization_id: Optional[str] = None
+    team_id: Optional[str] = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -154,3 +198,56 @@ class ChatResponse(BaseModel):
     answer: str
     confidence: float
     sources: Optional[List[str]] = None
+
+
+class UpdateUserRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    team_id: Optional[str] = None
+    password: Optional[str] = None
+
+
+class CreateKBRequest(BaseModel):
+    problem: str
+    solution: List[SolutionStep]
+    category: str
+    tags: List[str] = []
+    priority: str = "medium"
+    created_by: str
+
+
+class UpdateKBRequest(BaseModel):
+    problem: Optional[str] = None
+    solution: Optional[List[SolutionStep]] = None
+    category: Optional[str] = None
+    tags: Optional[List[str]] = None
+    priority: Optional[str] = None
+    usage_count: Optional[int] = None
+    effectiveness: Optional[float] = None
+
+
+class SettingsResponse(BaseModel):
+    id: str
+    key: Optional[str] = None
+    servicenow_url: Optional[str] = None
+    servicenow_username: Optional[str] = None
+    # ticket_check_interval and enable_ticket_monitor are now in Team model
+    # but we can keep them here as optional if the frontend still expects them
+    ticket_check_interval: Optional[int] = None
+    enable_ticket_monitor: Optional[bool] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class UpdateSettingsRequest(BaseModel):
+    servicenow_url: Optional[str] = None
+    servicenow_username: Optional[str] = None
+    servicenow_password: Optional[str] = None # Input only
+    google_api_key: Optional[str] = None       # Input only
+    openai_api_key: Optional[str] = None       # Input only
+    ticket_check_interval: Optional[int] = None
+    enable_ticket_monitor: Optional[bool] = None
+
+
+
