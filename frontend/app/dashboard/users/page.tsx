@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import type { User } from '@/lib/types';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth-provider';
 
 export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
