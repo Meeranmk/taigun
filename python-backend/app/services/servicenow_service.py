@@ -91,6 +91,37 @@ class ServiceNowAPI:
                     "success": False,
                     "error": str(e)
                 }
+
+    async def get_ticket_by_number(self, ticket_number: str) -> Dict[str, Any]:
+        """Get ticket details by ticket number (e.g. INC0010027)"""
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(
+                    f"{self.base_url}/table/incident",
+                    params={
+                        "sysparm_query": f"number={ticket_number}",
+                        "sysparm_limit": 1
+                    },
+                    auth=self.auth,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                data = response.json()
+                results = data.get("result", [])
+                
+                if not results:
+                     return {"success": False, "error": "Ticket not found"}
+
+                return {
+                    "success": True,
+                    "data": results[0]
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "error": str(e)
+                }
     
     async def update_ticket(
         self,

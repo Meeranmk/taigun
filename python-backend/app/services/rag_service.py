@@ -113,7 +113,8 @@ class RAGEngine:
     async def generate_solution(
         self,
         submission: ProblemSubmission,
-        servicenow_api: Optional[Any] = None
+        servicenow_api: Optional[Any] = None,
+        org_api_key: Optional[str] = None
     ) -> GeneratedSolution:
         """Generate solution using RAG"""
         problem = submission.problem
@@ -132,9 +133,9 @@ class RAGEngine:
             limit=self.max_similar_cases
         )
         
-        # Generate AI solution based on similar cases
+        # Generate AI solution based on similar cases (using org-specific API key)
         if similar_cases:
-            ai_solution = await self.generate_ai_solution(problem, similar_cases)
+            ai_solution = await self.generate_ai_solution(problem, similar_cases, org_api_key)
             
             return GeneratedSolution(
                 problem=problem,
@@ -161,7 +162,8 @@ class RAGEngine:
     async def generate_ai_solution(
         self,
         problem: str,
-        similar_cases: List[SimilarCase]
+        similar_cases: List[SimilarCase],
+        org_api_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """Use LLM to generate solution based on similar cases"""
         if not self.llm_provider:
@@ -184,6 +186,11 @@ Provide a clear, step-by-step solution. Format your response as numbered steps."
         solution_text = ""
         
         if self.llm_provider == "openai":
+            # Temporarily override API key if org-specific key provided
+            original_key = openai.api_key
+            if org_api_key:
+                openai.api_key = org_api_key
+            
             response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -194,10 +201,19 @@ Provide a clear, step-by-step solution. Format your response as numbered steps."
                 max_tokens=500
             )
             solution_text = response.choices[0].message.content
+            
+            # Restore original key
+            if org_api_key:
+                openai.api_key = original_key
         
         elif self.llm_provider == "google":
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash', 
+            # Create a new client with org-specific key if provided
+            client = self.client
+            if org_api_key:
+                client = genai.Client(api_key=org_api_key)
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash-lite', 
                 contents=prompt
             )
             solution_text = response.text

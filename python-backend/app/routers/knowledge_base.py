@@ -10,6 +10,22 @@ from app.core.dependencies import get_current_user
 from app.models.sql import User
 
 router = APIRouter()
+ 
+def kb_to_pydantic(entry) -> KnowledgeBaseEntry:
+    """Helper to convert SQLAlchemy KnowledgeBase to Pydantic KnowledgeBaseEntry"""
+    return KnowledgeBaseEntry(
+        id=str(entry.id),
+        problem=entry.problem,
+        solution=entry.solution,
+        category=entry.category,
+        tags=entry.tags,
+        priority=entry.priority,
+        created_by=entry.created_by,
+        created_at=entry.created_at,
+        updated_at=entry.updated_at,
+        usage_count=entry.usage_count,
+        effectiveness=entry.effectiveness
+    )
 
 @router.get("/")
 async def get_entries(
@@ -32,22 +48,8 @@ async def get_entries(
     paginated = all_entries[start:end]
     
     # Convert UUID to string manually
-    result = []
-    for entry in paginated:
-        entry_dict = {
-            "id": str(entry.id),
-            "problem": entry.problem,
-            "solution": entry.solution,
-            "category": entry.category,
-            "tags": entry.tags,
-            "priority": entry.priority,
-            "created_by": entry.created_by,
-            "created_at": entry.created_at,
-            "updated_at": entry.updated_at,
-            "usage_count": entry.usage_count,
-            "effectiveness": entry.effectiveness
-        }
-        result.append(entry_dict)
+    result = [kb_to_pydantic(entry) for entry in paginated]
+
     
     # Return paginated response format expected by frontend
     return {
@@ -64,13 +66,17 @@ async def create_entry(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new knowledge base entry"""
-    # Inject VectorDB if available
+    # Inject VectorDB and RAG engine if available
     vector_db = dependencies.vector_db
-    service = KBService(db, vector_db)
+    rag_engine = dependencies.rag_engine
+    service = KBService(db, vector_db, rag_engine)
     
-    # Note: Embedding generation and syncing is currently a TODO in implementation plan
-    # This will save to Postgres only for now
-    return await service.create(entry_in)
+    # This will save to Postgres AND sync to Qdrant automatically
+    kb_entry = await service.create(entry_in)
+    
+    # Convert SQLAlchemy model to Pydantic response (handles UUID -> str conversion)
+    return kb_to_pydantic(kb_entry)
+
 
 @router.get("/{entry_id}", response_model=KnowledgeBaseEntry)
 async def get_entry(
@@ -83,7 +89,7 @@ async def get_entry(
     entry = await service.get_by_id(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return entry
+    return kb_to_pydantic(entry)
 
 @router.put("/{entry_id}", response_model=KnowledgeBaseEntry)
 async def update_entry(
@@ -94,11 +100,12 @@ async def update_entry(
 ):
     """Update KB entry"""
     vector_db = dependencies.vector_db
-    service = KBService(db, vector_db)
+    rag_engine = dependencies.rag_engine
+    service = KBService(db, vector_db, rag_engine)
     entry = await service.update(entry_id, entry_in)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return entry
+    return kb_to_pydantic(entry)
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_entry(
@@ -108,7 +115,8 @@ async def delete_entry(
 ):
     """Delete KB entry"""
     vector_db = dependencies.vector_db
-    service = KBService(db, vector_db)
+    rag_engine = dependencies.rag_engine
+    service = KBService(db, vector_db, rag_engine)
     success = await service.delete(entry_id)
     if not success:
         raise HTTPException(status_code=404, detail="Entry not found")
