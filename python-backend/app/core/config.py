@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     
     # ServiceNow Ticket Monitor
     ticket_monitor_enabled: bool = True
+    ticket_monitor_interval_seconds: int = 600  # 10 minutes default
     
     # Vector Database - Qdrant
     qdrant_url: str = ""

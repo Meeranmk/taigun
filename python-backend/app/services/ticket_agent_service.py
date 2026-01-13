@@ -187,11 +187,9 @@ class TicketAgentService:
             except Exception as e:
                 logger.error(f"❌ Error in monitoring loop: {e}")
             
-            # Global sleep - usually short, as we want to be responsive?
-            # Or we sleep for a set time (e.g. 1 minute)
-            # Individual org intervals are handled inside _check_all_organizations checks?
-            # Simpler approach: Wake up every X seconds (e.g. 60s) and check everyone.
-            await asyncio.sleep(60)
+            # Sleep for configured interval (default 10 minutes)
+            interval = settings.ticket_monitor_interval_seconds
+            await asyncio.sleep(interval)
 
     async def _check_all_organizations(self):
         """Iterate all orgs and check if they need ticket processing"""
@@ -203,17 +201,13 @@ class TicketAgentService:
                 settings = await self._get_org_settings(org.id)
                 
                 # Check if monitoring is enabled
-                if str(settings.get("enable_ticket_monitor", "false")).lower() != "true":
+                is_enabled = str(settings.get("enable_ticket_monitor", "false")).lower() == "true"
+                logger.info(f"Org {org.name} ({org.id}): enable_ticket_monitor={is_enabled}")
+                
+                if not is_enabled:
                     continue
-
-                # Check Interval logic can be implemented here
-                # (e.g., store last_check_time in DB or just check every loop if loop is slow enough)
-                # For MVP, assuming loop runs every 60s and we check every time if enabled.
                 
-                # If interval is strictly required:
-                # interval = int(settings.get("ticket_check_interval", 300))
-                # Not implementing strict interval persistence for now (stateless approach)
-                
+                # Only process if monitoring is enabled for this org
                 await self._monitor_org(str(org.id), settings)
 
             except Exception as e:
@@ -225,7 +219,7 @@ class TicketAgentService:
         if not client:
             return
 
-        # 1. Init RAG (once per batch ideally, but here is fine)
+        # 1. Init RAG (only when actually needed)
         await self.rag_engine.initialize()
 
         # 2. Get Pending Tickets

@@ -73,11 +73,12 @@ async def startup_event():
         await dependencies.vector_db.initialize(vector_size)
         print("✅ Vector Database initialized\n")
         
-        # Initialize RAG Engine and store instance
+        
+        # Initialize RAG Engine (lazy - will connect to Qdrant on first use)
         print("🧠 Initializing RAG Engine...")
         dependencies.rag_engine = RAGEngine(dependencies.vector_db)
-        await dependencies.rag_engine.initialize(vector_size)
-        print("✅ RAG Engine initialized\n")
+        # Note: Not calling initialize() here - it will be called when first needed
+        print("✅ RAG Engine initialized (lazy mode)\n")
     except Exception as e:
         print(f"⚠️  Vector Database/RAG Engine initialization failed: {e}")
         print("⚠️  Continuing without AI features\n")
