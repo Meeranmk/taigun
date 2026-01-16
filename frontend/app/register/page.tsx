@@ -49,47 +49,100 @@ export default function RegisterPage() {
     const router = useRouter();
     const { addToast } = useUIStore();
     const [currentStep, setCurrentStep] = useState(1);
-    const [formData, setFormData] = useState<Partial<RegistrationFormData>>({
+    const [formData, setFormData] = useState<RegistrationFormData>({
+        // Step 1: Organization Information
+        organizationName: '',
+        organizationEmail: '',
+        website: '',
+        industry: '',
+        size: '1-10',
+        country: '',
+        timezone: '',
+        // Step 2: Team Admin Information
+        adminFirstName: '',
+        adminLastName: '',
+        adminEmail: '',
+        adminPhone: '',
         initialTeamName: 'Default Team',
+        // Step 3: Initial Settings
+        serviceNowInstanceUrl: '',
+        serviceNowUsername: '',
+        serviceNowPassword: '',
+        authMethod: 'oauth',
+        googleApiKey: '',
+        openaiApiKey: '',
         defaultLanguage: 'English',
         dataRetentionPolicy: '90 days',
+        acceptedTerms: false,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Get current schema based on step
-    const getCurrentSchema = () => {
+    // Create separate form instances for each step
+    const step1Form = useForm({
+        resolver: zodResolver(organizationInfoSchema),
+        defaultValues: {
+            organizationName: formData.organizationName,
+            organizationEmail: formData.organizationEmail,
+            website: formData.website,
+            industry: formData.industry,
+            size: formData.size,
+            country: formData.country,
+            timezone: formData.timezone,
+        },
+    });
+
+    const step2Form = useForm({
+        resolver: zodResolver(teamAdminInfoSchema),
+        defaultValues: {
+            adminFirstName: formData.adminFirstName,
+            adminLastName: formData.adminLastName,
+            adminEmail: formData.adminEmail,
+            adminPhone: formData.adminPhone,
+            initialTeamName: formData.initialTeamName,
+        },
+    });
+
+    const step3Form = useForm({
+        resolver: zodResolver(initialSettingsSchema),
+        defaultValues: {
+            serviceNowInstanceUrl: formData.serviceNowInstanceUrl,
+            serviceNowUsername: formData.serviceNowUsername,
+            serviceNowPassword: formData.serviceNowPassword,
+            authMethod: formData.authMethod,
+            googleApiKey: formData.googleApiKey,
+            openaiApiKey: formData.openaiApiKey,
+            defaultLanguage: formData.defaultLanguage,
+            dataRetentionPolicy: formData.dataRetentionPolicy,
+            acceptedTerms: formData.acceptedTerms,
+        },
+    });
+
+    // Get the current form based on step
+    const getCurrentForm = () => {
         switch (currentStep) {
             case 1:
-                return organizationInfoSchema;
+                return step1Form;
             case 2:
-                return teamAdminInfoSchema;
+                return step2Form;
             case 3:
-                return initialSettingsSchema;
+                return step3Form;
             default:
-                return organizationInfoSchema;
+                return step1Form;
         }
     };
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        trigger,
-    } = useForm({
-        resolver: zodResolver(getCurrentSchema()),
-        defaultValues: formData,
-    });
-
-    const handleNext = async (data: any) => {
-        const isValid = await trigger();
+    const handleNext = async () => {
+        const currentForm = getCurrentForm();
+        const isValid = await currentForm.trigger();
         if (!isValid) return;
 
-        setFormData({ ...formData, ...data });
+        const currentValues = currentForm.getValues();
+        setFormData({ ...formData, ...currentValues });
 
         if (currentStep < 3) {
             setCurrentStep(currentStep + 1);
         } else {
-            await handleFinalSubmit({ ...formData, ...data });
+            await handleFinalSubmit({ ...formData, ...currentValues });
         }
     };
 
@@ -176,7 +229,7 @@ export default function RegisterPage() {
                         <CardDescription>{STEPS[currentStep - 1].description}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSubmit(handleNext)} className="space-y-6">
+                        <div className="space-y-6">
                             {/* Step 1: Organization Information */}
                             {currentStep === 1 && (
                                 <div className="space-y-4">
@@ -185,11 +238,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="organizationName">Organization Name *</Label>
                                             <Input
                                                 id="organizationName"
-                                                {...register('organizationName')}
+                                                {...step1Form.register('organizationName')}
                                                 placeholder="Acme Corporation"
                                             />
-                                            {errors.organizationName && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.organizationName.message as string}</p>
+                                            {step1Form.formState.errors.organizationName && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.organizationName.message as string}</p>
                                             )}
                                         </div>
 
@@ -198,11 +251,11 @@ export default function RegisterPage() {
                                             <Input
                                                 id="organizationEmail"
                                                 type="email"
-                                                {...register('organizationEmail')}
+                                                {...step1Form.register('organizationEmail')}
                                                 placeholder="contact@acme.com"
                                             />
-                                            {errors.organizationEmail && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.organizationEmail.message as string}</p>
+                                            {step1Form.formState.errors.organizationEmail && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.organizationEmail.message as string}</p>
                                             )}
                                         </div>
                                     </div>
@@ -211,11 +264,11 @@ export default function RegisterPage() {
                                         <Label htmlFor="website">Website</Label>
                                         <Input
                                             id="website"
-                                            {...register('website')}
+                                            {...step1Form.register('website')}
                                             placeholder="https://acme.com"
                                         />
-                                        {errors.website && (
-                                            <p className="text-sm text-red-600 mt-1">{errors.website.message as string}</p>
+                                        {step1Form.formState.errors.website && (
+                                            <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.website.message as string}</p>
                                         )}
                                     </div>
 
@@ -224,7 +277,7 @@ export default function RegisterPage() {
                                             <Label htmlFor="industry">Industry *</Label>
                                             <select
                                                 id="industry"
-                                                {...register('industry')}
+                                                {...step1Form.register('industry')}
                                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             >
                                                 <option value="">Select industry</option>
@@ -234,8 +287,8 @@ export default function RegisterPage() {
                                                     </option>
                                                 ))}
                                             </select>
-                                            {errors.industry && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.industry.message as string}</p>
+                                            {step1Form.formState.errors.industry && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.industry.message as string}</p>
                                             )}
                                         </div>
 
@@ -243,7 +296,7 @@ export default function RegisterPage() {
                                             <Label htmlFor="size">Organization Size *</Label>
                                             <select
                                                 id="size"
-                                                {...register('size')}
+                                                {...step1Form.register('size')}
                                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             >
                                                 <option value="">Select size</option>
@@ -253,8 +306,8 @@ export default function RegisterPage() {
                                                 <option value="201-500">201-500 employees</option>
                                                 <option value="500+">500+ employees</option>
                                             </select>
-                                            {errors.size && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.size.message as string}</p>
+                                            {step1Form.formState.errors.size && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.size.message as string}</p>
                                             )}
                                         </div>
                                     </div>
@@ -264,11 +317,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="country">Country *</Label>
                                             <Input
                                                 id="country"
-                                                {...register('country')}
+                                                {...step1Form.register('country')}
                                                 placeholder="United States"
                                             />
-                                            {errors.country && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.country.message as string}</p>
+                                            {step1Form.formState.errors.country && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.country.message as string}</p>
                                             )}
                                         </div>
 
@@ -276,11 +329,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="timezone">Timezone *</Label>
                                             <Input
                                                 id="timezone"
-                                                {...register('timezone')}
+                                                {...step1Form.register('timezone')}
                                                 placeholder="America/New_York"
                                             />
-                                            {errors.timezone && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.timezone.message as string}</p>
+                                            {step1Form.formState.errors.timezone && (
+                                                <p className="text-sm text-red-600 mt-1">{step1Form.formState.errors.timezone.message as string}</p>
                                             )}
                                         </div>
                                     </div>
@@ -295,11 +348,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="adminFirstName">First Name *</Label>
                                             <Input
                                                 id="adminFirstName"
-                                                {...register('adminFirstName')}
+                                                {...step2Form.register('adminFirstName')}
                                                 placeholder="John"
                                             />
-                                            {errors.adminFirstName && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.adminFirstName.message as string}</p>
+                                            {step2Form.formState.errors.adminFirstName && (
+                                                <p className="text-sm text-red-600 mt-1">{step2Form.formState.errors.adminFirstName.message as string}</p>
                                             )}
                                         </div>
 
@@ -307,11 +360,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="adminLastName">Last Name *</Label>
                                             <Input
                                                 id="adminLastName"
-                                                {...register('adminLastName')}
+                                                {...step2Form.register('adminLastName')}
                                                 placeholder="Doe"
                                             />
-                                            {errors.adminLastName && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.adminLastName.message as string}</p>
+                                            {step2Form.formState.errors.adminLastName && (
+                                                <p className="text-sm text-red-600 mt-1">{step2Form.formState.errors.adminLastName.message as string}</p>
                                             )}
                                         </div>
                                     </div>
@@ -321,11 +374,11 @@ export default function RegisterPage() {
                                         <Input
                                             id="adminEmail"
                                             type="email"
-                                            {...register('adminEmail')}
+                                            {...step2Form.register('adminEmail')}
                                             placeholder="john.doe@acme.com"
                                         />
-                                        {errors.adminEmail && (
-                                            <p className="text-sm text-red-600 mt-1">{errors.adminEmail.message as string}</p>
+                                        {step2Form.formState.errors.adminEmail && (
+                                            <p className="text-sm text-red-600 mt-1">{step2Form.formState.errors.adminEmail.message as string}</p>
                                         )}
                                     </div>
 
@@ -333,7 +386,7 @@ export default function RegisterPage() {
                                         <Label htmlFor="adminPhone">Phone Number</Label>
                                         <Input
                                             id="adminPhone"
-                                            {...register('adminPhone')}
+                                            {...step2Form.register('adminPhone')}
                                             placeholder="+1 (555) 123-4567"
                                         />
                                     </div>
@@ -342,11 +395,11 @@ export default function RegisterPage() {
                                         <Label htmlFor="initialTeamName">Initial Team Name *</Label>
                                         <Input
                                             id="initialTeamName"
-                                            {...register('initialTeamName')}
+                                            {...step2Form.register('initialTeamName')}
                                             placeholder="Default Team"
                                         />
-                                        {errors.initialTeamName && (
-                                            <p className="text-sm text-red-600 mt-1">{errors.initialTeamName.message as string}</p>
+                                        {step2Form.formState.errors.initialTeamName && (
+                                            <p className="text-sm text-red-600 mt-1">{step2Form.formState.errors.initialTeamName.message as string}</p>
                                         )}
                                     </div>
                                 </div>
@@ -363,7 +416,7 @@ export default function RegisterPage() {
                                             <Input
                                                 id="openaiApiKey"
                                                 type="password"
-                                                {...register('openaiApiKey')}
+                                                {...step3Form.register('openaiApiKey')}
                                                 placeholder="sk-..."
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">Get your API key from OpenAI Platform</p>
@@ -373,7 +426,7 @@ export default function RegisterPage() {
                                             <Input
                                                 id="googleApiKey"
                                                 type="password"
-                                                {...register('googleApiKey')}
+                                                {...step3Form.register('googleApiKey')}
                                                 placeholder="Alza..."
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">Get your API key from Google AI Studio</p>
@@ -387,11 +440,11 @@ export default function RegisterPage() {
                                             <Label htmlFor="serviceNowInstanceUrl">ServiceNow Instance URL *</Label>
                                             <Input
                                                 id="serviceNowInstanceUrl"
-                                                {...register('serviceNowInstanceUrl')}
+                                                {...step3Form.register('serviceNowInstanceUrl')}
                                                 placeholder="https://your-instance.service-now.com"
                                             />
-                                            {errors.serviceNowInstanceUrl && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.serviceNowInstanceUrl.message as string}</p>
+                                            {step3Form.formState.errors.serviceNowInstanceUrl && (
+                                                <p className="text-sm text-red-600 mt-1">{step3Form.formState.errors.serviceNowInstanceUrl.message as string}</p>
                                             )}
                                         </div>
 
@@ -400,11 +453,11 @@ export default function RegisterPage() {
                                                 <Label htmlFor="serviceNowUsername">Username *</Label>
                                                 <Input
                                                     id="serviceNowUsername"
-                                                    {...register('serviceNowUsername')}
+                                                    {...step3Form.register('serviceNowUsername')}
                                                     placeholder="admin"
                                                 />
-                                                {errors.serviceNowUsername && (
-                                                    <p className="text-sm text-red-600 mt-1">{errors.serviceNowUsername.message as string}</p>
+                                                {step3Form.formState.errors.serviceNowUsername && (
+                                                    <p className="text-sm text-red-600 mt-1">{step3Form.formState.errors.serviceNowUsername.message as string}</p>
                                                 )}
                                             </div>
                                             <div>
@@ -412,11 +465,11 @@ export default function RegisterPage() {
                                                 <Input
                                                     id="serviceNowPassword"
                                                     type="password"
-                                                    {...register('serviceNowPassword')}
+                                                    {...step3Form.register('serviceNowPassword')}
                                                     placeholder="••••••••"
                                                 />
-                                                {errors.serviceNowPassword && (
-                                                    <p className="text-sm text-red-600 mt-1">{errors.serviceNowPassword.message as string}</p>
+                                                {step3Form.formState.errors.serviceNowPassword && (
+                                                    <p className="text-sm text-red-600 mt-1">{step3Form.formState.errors.serviceNowPassword.message as string}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -425,15 +478,15 @@ export default function RegisterPage() {
                                             <Label htmlFor="authMethod">Authentication Method *</Label>
                                             <select
                                                 id="authMethod"
-                                                {...register('authMethod')}
+                                                {...step3Form.register('authMethod')}
                                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             >
                                                 <option value="">Select method</option>
                                                 <option value="oauth">OAuth</option>
                                                 <option value="api_key">Basic Auth</option>
                                             </select>
-                                            {errors.authMethod && (
-                                                <p className="text-sm text-red-600 mt-1">{errors.authMethod.message as string}</p>
+                                            {step3Form.formState.errors.authMethod && (
+                                                <p className="text-sm text-red-600 mt-1">{step3Form.formState.errors.authMethod.message as string}</p>
                                             )}
                                         </div>
                                     </div>
@@ -443,7 +496,7 @@ export default function RegisterPage() {
                                             <Label htmlFor="defaultLanguage">Default Language *</Label>
                                             <select
                                                 id="defaultLanguage"
-                                                {...register('defaultLanguage')}
+                                                {...step3Form.register('defaultLanguage')}
                                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             >
                                                 {LANGUAGES.map((lang) => (
@@ -458,7 +511,7 @@ export default function RegisterPage() {
                                             <Label htmlFor="dataRetentionPolicy">Data Retention Policy *</Label>
                                             <select
                                                 id="dataRetentionPolicy"
-                                                {...register('dataRetentionPolicy')}
+                                                {...step3Form.register('dataRetentionPolicy')}
                                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                             >
                                                 {DATA_RETENTION_POLICIES.map((policy) => (
@@ -474,7 +527,7 @@ export default function RegisterPage() {
                                         <input
                                             type="checkbox"
                                             id="acceptedTerms"
-                                            {...register('acceptedTerms')}
+                                            {...step3Form.register('acceptedTerms')}
                                             className="mt-1"
                                         />
                                         <Label htmlFor="acceptedTerms" className="text-sm">
@@ -489,8 +542,8 @@ export default function RegisterPage() {
                                             *
                                         </Label>
                                     </div>
-                                    {errors.acceptedTerms && (
-                                        <p className="text-sm text-red-600">{errors.acceptedTerms.message as string}</p>
+                                    {step3Form.formState.errors.acceptedTerms && (
+                                        <p className="text-sm text-red-600">{step3Form.formState.errors.acceptedTerms.message as string}</p>
                                     )}
                                 </div>
                             )}
@@ -507,7 +560,7 @@ export default function RegisterPage() {
                                     Back
                                 </Button>
 
-                                <Button type="submit" disabled={isSubmitting}>
+                                <Button onClick={handleNext} disabled={isSubmitting}>
                                     {isSubmitting ? (
                                         'Submitting...'
                                     ) : currentStep === 3 ? (
@@ -520,7 +573,7 @@ export default function RegisterPage() {
                                     )}
                                 </Button>
                             </div>
-                        </form>
+                        </div>
                     </CardContent>
                 </Card>
 
