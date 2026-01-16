@@ -51,8 +51,9 @@ class VectorDB:
     
     async def add_kb_entry(self, entry: KnowledgeBaseEntry, embedding: List[float]):
         """Add a knowledge base entry to vector database"""
+        # Use the KB entry ID as the point ID for direct upsert/update capability
         point = PointStruct(
-            id=str(uuid.uuid4()),
+            id=entry.id,
             vector=embedding,
             payload={
                 "entry_id": entry.id,
@@ -70,9 +71,7 @@ class VectorDB:
     
     async def update_kb_entry(self, entry: KnowledgeBaseEntry, embedding: List[float]):
         """Update a knowledge base entry in vector database"""
-        # Delete old entry
-        await self.delete_kb_entry(entry.id)
-        # Add new entry
+        # Since we use entry.id as the point ID, upsert will automatically update
         await self.add_kb_entry(entry, embedding)
     
     async def delete_kb_entry(self, entry_id: str):
@@ -93,12 +92,13 @@ class VectorDB:
         score_threshold: float = 0.7
     ) -> List[Dict[str, Any]]:
         """Search for similar knowledge base entries"""
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=self.kb_collection,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=limit,
             score_threshold=score_threshold
         )
+        results = response.points
         
         return [
             {
@@ -133,12 +133,13 @@ class VectorDB:
         score_threshold: float = 0.7
     ) -> List[Dict[str, Any]]:
         """Search for similar tickets"""
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=self.tickets_collection,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=limit,
             score_threshold=score_threshold
         )
+        results = response.points
         
         return [
             {

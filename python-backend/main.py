@@ -11,6 +11,16 @@ from app.services.servicenow_service import ServiceNowAPI
 from app.models.schemas import ServiceNowConfig
 from app.core import dependencies
 from app.routers import api_router
+from app.services.ticket_agent_service import TicketAgentService
+import asyncio
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:     %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 
 settings = get_settings()
 
@@ -27,6 +37,7 @@ if settings.enable_cors:
         CORSMiddleware,
         allow_origins=[
             "http://localhost:3000",
+            "https://dev317531.service-now.com",
             "http://127.0.0.1:3000",
             "http://localhost:3001",
             "http://127.0.0.1:3001"
@@ -94,6 +105,10 @@ async def startup_event():
         print("⚠️  ServiceNow credentials not configured\n")
     
     print("✨ System ready!\n")
+    
+    # Start Ticket Monitoring Background Task
+    asyncio.create_task(TicketAgentService.run_monitoring_loop())
+    
     print("📍 Available Services:")
     print(f"   • API Server: http://{settings.api_host}:{settings.api_port}")
     print(f"   • API Docs: http://{settings.api_host}:{settings.api_port}/docs")
