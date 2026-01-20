@@ -13,8 +13,14 @@ settings = get_settings()
 database_url = settings.get_database_url()
 
 # Remove sslmode parameter from URL and use connect_args instead
-if "?sslmode=require" in database_url:
-    database_url = database_url.replace("?sslmode=require", "")
+# asyncpg doesn't support sslmode in URL, it needs to be passed as ssl parameter
+import re
+if "?sslmode=" in database_url or "&sslmode=" in database_url:
+    # Remove sslmode from URL
+    database_url = re.sub(r'[?&]sslmode=[^&]+', '', database_url)
+    # Clean up any trailing ? or &
+    database_url = database_url.rstrip('?&')
+    # Convert to asyncpg
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     
     # Create async engine with SSL in connect_args
@@ -26,6 +32,7 @@ if "?sslmode=require" in database_url:
 else:
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     engine = create_async_engine(database_url, echo=False)
+
 
 # Create async session factory
 AsyncSessionLocal = sessionmaker(
@@ -83,12 +90,19 @@ async def init_db():
                 id=uuid.uuid4(),
                 name="Default Organization",
                 contact_email=f"admin@{settings.admin_username}.com",
+                industry="Technology",
+                size="1-10",
+                country="United States",
+                timezone="UTC",
+                status="active",
+                email_verified=True,
                 plan_id=plan.id
             )
             session.add(org)
             await session.commit()
             await session.refresh(org)
             print(f"✅ Created organization: {org.name}")
+
 
             # 3. Bootstrap Organization Settings
             print("🚀 Bootstrapping Organization Settings...")

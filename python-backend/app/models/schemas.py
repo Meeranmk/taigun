@@ -248,6 +248,3 @@ class UpdateSettingsRequest(BaseModel):
     openai_api_key: Optional[str] = None       # Input only
     ticket_check_interval: Optional[int] = None
     enable_ticket_monitor: Optional[bool] = None
-
-
-

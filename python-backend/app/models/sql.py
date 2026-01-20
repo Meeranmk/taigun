@@ -27,7 +27,14 @@ class Organization(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    contact_email = Column(String)
+    contact_email = Column(String, nullable=False)
+    website = Column(String, nullable=True)
+    industry = Column(String, nullable=False)
+    size = Column(String, nullable=False)  # '1-10', '11-50', '51-200', '201-500', '500+'
+    country = Column(String, nullable=False)
+    timezone = Column(String, nullable=False)
+    status = Column(String, default="pending")  # pending, active, inactive, suspended
+    email_verified = Column(Boolean, default=False)
     plan_id = Column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -55,10 +62,17 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=False)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
-    role = Column(String, default="user") # platform_owner, org_admin, team_admin, user
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True) # Nullable for Platform Owner potentially, or just map them to a "System Org"
-    team_id = Column(UUID(as_uuid=True), nullable=True) # Nullable now
+    role = Column(String, default="user")  # platform_owner, org_admin, team_admin, user
+    status = Column(String, default="active")  # active, inactive, suspended
+    email_verified = Column(Boolean, default=False)
+    requires_password_change = Column(Boolean, default=False)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
+    team_id = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -94,9 +108,24 @@ class ProcessedTicket(Base):
     __tablename__ = "processed_tickets"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True) # Added for multi-tenancy
+    organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=True)
     ticket_sys_id = Column(String, unique=True, nullable=False, index=True)
     ticket_number = Column(String)
     solution_provided = Column(Text)
     confidence_score = Column(Numeric)
     processed_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class EmailVerificationToken(Base):
+    """Reusable email verification token model for organizations, users, teams, etc."""
+    __tablename__ = "email_verification_tokens"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    token = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False)  # 'organization', 'user', 'team'
+    entity_id = Column(UUID(as_uuid=True), nullable=False)
+    purpose = Column(String, nullable=False)  # 'registration', 'email_change', 'invitation'
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

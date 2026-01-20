@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_host: str = "0.0.0.0"
     enable_cors: bool = True
+    frontend_url: str = "http://localhost:3000"  # Frontend URL for email links
     
     # Admin Authentication
     admin_username: str = "admin"

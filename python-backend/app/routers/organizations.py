@@ -5,13 +5,98 @@ from typing import List
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.schemas import OrganizationCreate, OrganizationResponse, SubscriptionPlanResponse, User
+from app.models.schemas_registration import (
+    OrganizationRegistrationRequest,
+    EmailVerificationResponse,
+    VerifyEmailRequest,
+    VerifyEmailResponse
+)
 from app.services.organization_service import OrganizationService
+from app.services.registration_service import RegistrationService
 
 router = APIRouter(
-    prefix="/api/admin/organizations",
+    prefix="/api/organizations",
     tags=["Organizations"],
     responses={404: {"description": "Not found"}},
 )
+
+
+# ==================== Public Registration Endpoints ====================
+
+@router.post("/register", response_model=EmailVerificationResponse)
+async def register_organization(
+    registration: OrganizationRegistrationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Register a new organization (PUBLIC - No authentication required)
+    
+    This endpoint:
+    1. Creates organization with status='pending'
+    2. Creates admin user with temporary password
+    3. Creates initial team
+    4. Stores all settings
+    5. Sends verification email
+    
+    The organization will be activated after email verification.
+    """
+    try:
+        service = RegistrationService(db)
+        result = await service.register_organization(registration)
+        
+        return EmailVerificationResponse(
+            success=True,
+            message=result["message"],
+            email=result["verification_sent_to"],
+            expiresIn=24 * 60  # 24 hours in minutes
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+async def verify_email(
+    request: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Verify email address using token (PUBLIC - No authentication required)
+    
+    This endpoint:
+    1. Validates the verification token
+    2. Activates the organization
+    3. Activates the admin user
+    4. Sends welcome email with temporary password
+    """
+    try:
+        service = RegistrationService(db)
+        result = await service.verify_organization_email(request.token)
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result["message"]
+            )
+        
+        return VerifyEmailResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Email verification failed: {str(e)}"
+        )
+
+
+# ==================== Authenticated Endpoints ====================
 
 @router.post("/", response_model=OrganizationResponse)
 async def create_organization(
