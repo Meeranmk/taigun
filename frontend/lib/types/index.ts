@@ -377,4 +377,19 @@ export interface Notification {
     actionUrl?: string;
 }
 
+// Email Verification Types
+export interface VerifyEmailResponse {
+    success: boolean;
+    message: string;
+    organizationId?: string;
+    userId?: string;
+    needsPassword: boolean;
+}
+
+export interface CreatePasswordRequest {
+    userId: string;
+    password: string;
+    confirmPassword: string;
+}
+
 // All types are already exported above

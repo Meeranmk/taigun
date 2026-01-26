@@ -92,6 +92,14 @@ export interface AuthStatus {
     role?: 'admin' | 'user';
 }
 
+export interface VerifyEmailResponse {
+    success: boolean;
+    message: string;
+    userId?: string;
+    organizationId?: string;
+    needsPassword?: boolean;
+}
+
 export interface LoginCredentials {
     username: string;
     password: string;

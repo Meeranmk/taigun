@@ -19,7 +19,8 @@ import type {
     PaginationParams,
     ApiResponse,
     AuditLog,
-    ChatMessage
+    ChatMessage,
+    VerifyEmailResponse
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -47,6 +48,9 @@ class APIClient {
                         path !== '/' &&
                         !path.startsWith('/login') &&
                         !path.startsWith('/register') &&
+                        !path.startsWith('/verify-email') &&
+                        !path.startsWith('/create-password') &&
+                        !path.startsWith('/resend-verification') &&
                         !path.startsWith('/chat')) {
                         window.location.href = '/login';
                     }
@@ -81,6 +85,28 @@ class APIClient {
 
     async registerOrganization(registration: OrganizationRegistration): Promise<ApiResponse<Organization>> {
         const { data } = await this.client.post<ApiResponse<Organization>>('/organizations/register', registration);
+        return data;
+    }
+
+    async verifyEmail(token: string): Promise<VerifyEmailResponse> {
+        const { data } = await this.client.post<VerifyEmailResponse>('/organizations/verify-email', { token });
+        return data;
+    }
+
+    async createPassword(userId: string, password: string, confirmPassword: string): Promise<ApiResponse<any>> {
+        const { data } = await this.client.post<ApiResponse<any>>('/organizations/create-password', {
+            userId,
+            password,
+            confirmPassword
+        });
+        return data;
+    }
+
+    async resendVerification(email: string, entityType: 'organization' | 'user'): Promise<ApiResponse<any>> {
+        const { data } = await this.client.post<ApiResponse<any>>('/organizations/resend-verification', {
+            email,
+            entityType
+        });
         return data;
     }
 

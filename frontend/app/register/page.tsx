@@ -15,6 +15,9 @@ import {
     teamAdminInfoSchema,
     initialSettingsSchema,
     type RegistrationFormData,
+    type OrganizationInfoFormData,
+    type TeamAdminInfoFormData,
+    type InitialSettingsFormData,
 } from '@/lib/validations/registration';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
 
@@ -56,31 +59,81 @@ export default function RegisterPage() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Get current schema based on step
-    const getCurrentSchema = () => {
+    // Create separate form instances for each step
+    const step1Form = useForm<OrganizationInfoFormData>({
+        resolver: zodResolver(organizationInfoSchema),
+        defaultValues: {
+            organizationName: '',
+            organizationEmail: '',
+            website: '',
+            industry: '',
+            size: '1-10',
+            country: '',
+            timezone: '',
+        },
+    });
+
+    const step2Form = useForm<TeamAdminInfoFormData>({
+        resolver: zodResolver(teamAdminInfoSchema),
+        defaultValues: {
+            adminFirstName: '',
+            adminLastName: '',
+            adminEmail: '',
+            adminPhone: '',
+            initialTeamName: formData.initialTeamName || 'Default Team',
+        },
+    });
+
+    const step3Form = useForm<InitialSettingsFormData>({
+        resolver: zodResolver(initialSettingsSchema),
+        defaultValues: {
+            serviceNowInstanceUrl: '',
+            serviceNowUsername: '',
+            serviceNowPassword: '',
+            authMethod: 'oauth',
+            googleApiKey: '',
+            openaiApiKey: '',
+            defaultLanguage: formData.defaultLanguage || 'English',
+            dataRetentionPolicy: formData.dataRetentionPolicy || '90 days',
+            acceptedTerms: false,
+        },
+    });
+
+    // Helper function to get the current form's trigger function
+    const getCurrentTrigger = () => {
         switch (currentStep) {
             case 1:
-                return organizationInfoSchema;
+                return step1Form.trigger;
             case 2:
-                return teamAdminInfoSchema;
+                return step2Form.trigger;
             case 3:
-                return initialSettingsSchema;
+                return step3Form.trigger;
             default:
-                return organizationInfoSchema;
+                return step1Form.trigger;
         }
     };
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        trigger,
-    } = useForm({
-        resolver: zodResolver(getCurrentSchema()),
-        defaultValues: formData,
-    });
+    // Helper function to get the current form's handleSubmit
+    const getCurrentHandleSubmit = () => {
+        switch (currentStep) {
+            case 1:
+                return step1Form.handleSubmit;
+            case 2:
+                return step2Form.handleSubmit;
+            case 3:
+                return step3Form.handleSubmit;
+            default:
+                return step1Form.handleSubmit;
+        }
+    };
+
+    // Get current form's register and errors based on step
+    // Using 'as any' to avoid union type issues since we know the correct form is used for each step
+    const register = (currentStep === 1 ? step1Form.register : currentStep === 2 ? step2Form.register : step3Form.register) as any;
+    const errors = (currentStep === 1 ? step1Form.formState.errors : currentStep === 2 ? step2Form.formState.errors : step3Form.formState.errors) as any;
 
     const handleNext = async (data: any) => {
+        const trigger = getCurrentTrigger();
         const isValid = await trigger();
         if (!isValid) return;
 
@@ -108,13 +161,13 @@ export default function RegisterPage() {
                 addToast({
                     type: 'success',
                     title: 'Registration Successful!',
-                    message: 'Your organization has been created. Check your email for login credentials.',
+                    message: 'Please check your email to verify your account and create your password.',
                 });
 
-                // Redirect to login page
+                // Redirect to login page with message
                 setTimeout(() => {
-                    router.push('/login');
-                }, 2000);
+                    router.push('/login?message=Registration successful! Please check your email to verify your account.');
+                }, 3000);
             }
         } catch (error: any) {
             addToast({
@@ -176,7 +229,7 @@ export default function RegisterPage() {
                         <CardDescription>{STEPS[currentStep - 1].description}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSubmit(handleNext)} className="space-y-6">
+                        <form onSubmit={getCurrentHandleSubmit()(handleNext)} className="space-y-6">
                             {/* Step 1: Organization Information */}
                             {currentStep === 1 && (
                                 <div className="space-y-4">
@@ -534,6 +587,6 @@ export default function RegisterPage() {
                     </p>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
