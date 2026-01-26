@@ -55,8 +55,26 @@ class UserService:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalars().first()
 
-    async def get_by_username(self, username: str) -> Optional[User]:
-        result = await self.db.execute(select(User).where(User.username == username))
+    async def get_by_username(self, username_or_email: str) -> Optional[User]:
+        """
+        Get user by username OR email (flexible login)
+        
+        Args:
+            username_or_email: Can be either username (user ID) or email address
+            
+        Returns:
+            User if found, None otherwise
+        """
+        from sqlalchemy import or_
+        
+        result = await self.db.execute(
+            select(User).where(
+                or_(
+                    User.username == username_or_email,
+                    User.email == username_or_email
+                )
+            )
+        )
         return result.scalars().first()
     
     async def get_all(self) -> List[User]:

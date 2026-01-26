@@ -97,7 +97,8 @@ class EmailService:
         self,
         email: str,
         token: str,
-        purpose: str = "registration"
+        purpose: str = "registration",
+        username: str = None
     ) -> bool:
         """
         Send verification email via SMTP
@@ -106,6 +107,7 @@ class EmailService:
             email: Recipient email
             token: Verification token
             purpose: Purpose of email
+            username: User ID (optional, for registration emails)
             
         Returns:
             True if sent successfully
@@ -117,6 +119,17 @@ class EmailService:
         # Email content based on purpose
         if purpose == "registration":
             subject = "Verify your email - Taigun ServiceNow AI Agent"
+            
+            # Include user ID in email if provided
+            user_id_section = ""
+            if username:
+                user_id_section = f"""
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; border-left: 4px solid #2196f3; margin: 20px 0;">
+                        <p><strong>Your User ID:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 3px; font-size: 18px; font-weight: bold;">{username}</code></p>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">You'll use this User ID to log in after creating your password.</p>
+                    </div>
+                """
+            
             html_body = f"""
             <!DOCTYPE html>
             <html>
@@ -137,6 +150,7 @@ class EmailService:
                     </div>
                     <div class="content">
                         <p>Thank you for registering your organization with Taigun ServiceNow AI Agent.</p>
+                        {user_id_section}
                         <p>Please verify your email address by clicking the button below:</p>
                         <p style="text-align: center;">
                             <a href="{verification_url}" class="button">Verify Email Address</a>
@@ -281,7 +295,8 @@ class EmailService:
         self,
         email: str,
         first_name: str,
-        organization_name: str
+        organization_name: str,
+        username: str = None
     ) -> bool:
         """
         Send welcome email WITHOUT password - user will create password on frontend
@@ -290,11 +305,22 @@ class EmailService:
             email: Recipient email
             first_name: User's first name
             organization_name: Organization name
+            username: User ID (optional)
             
         Returns:
             True if sent successfully
         """
         login_url = f"{settings.frontend_url}/create-password"
+        
+        # Include user ID section if provided
+        user_id_section = ""
+        if username:
+            user_id_section = f"""
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; border-left: 4px solid #2196f3; margin: 20px 0;">
+                    <p><strong>Your User ID:</strong> <code style="background: #fff; padding: 5px 10px; border-radius: 3px; font-size: 18px; font-weight: bold;">{username}</code></p>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">Use this User ID along with your password to log in.</p>
+                </div>
+            """
         
         subject = f"Welcome to {organization_name} on Taigun!"
         html_body = f"""
@@ -317,7 +343,7 @@ class EmailService:
                 </div>
                 <div class="content">
                     <p>Your email has been verified successfully!</p>
-                    
+                    {user_id_section}
                     <div class="info-box">
                         <p><strong>Next Step:</strong> Create your password to complete your account setup.</p>
                     </div>

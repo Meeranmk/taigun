@@ -33,12 +33,18 @@ class RegistrationService:
         return password
     
     def _generate_username(self, first_name: str, last_name: str, email: str) -> str:
-        """Generate a unique username from name and email"""
-        # Try firstname.lastname
-        base_username = f"{first_name.lower()}.{last_name.lower()}"
-        # Remove special characters
-        base_username = ''.join(c for c in base_username if c.isalnum() or c == '.')
-        return base_username
+        """Generate a unique user ID from initials + 3 random digits (e.g., SV343)"""
+        # Get first letter of first name and last name
+        first_initial = first_name[0].upper() if first_name else 'U'
+        last_initial = last_name[0].upper() if last_name else 'X'
+        
+        # Generate 3 random digits
+        random_digits = ''.join(str(secrets.randbelow(10)) for _ in range(3))
+        
+        # Combine: FirstInitial + LastInitial + 3Digits
+        user_id = f"{first_initial}{last_initial}{random_digits}"
+        
+        return user_id
     
     async def _check_email_exists(self, email: str) -> bool:
         """Check if email already exists in organizations or users"""
@@ -200,11 +206,12 @@ class RegistrationService:
                 expires_in_hours=24
             )
             
-            # Send verification email
+            # Send verification email with admin username (user ID)
             await self.email_service.send_verification_email(
                 email=registration.organizationEmail,
                 token=token,
-                purpose="registration"
+                purpose="registration",
+                username=username  # Pass the generated user ID
             )
             
             # Commit all changes
@@ -279,11 +286,12 @@ class RegistrationService:
                 admin_user.email_verified = True
                 # Password remains empty - user will create it on frontend
                 
-                # Send welcome email WITHOUT password
+                # Send welcome email WITHOUT password but WITH user ID
                 await self.email_service.send_welcome_email_no_password(
                     email=admin_user.email,
                     first_name=admin_user.first_name or "User",
-                    organization_name=organization.name
+                    organization_name=organization.name,
+                    username=admin_user.username  # Pass the user ID
                 )
             
             await self.db.commit()
