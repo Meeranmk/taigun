@@ -101,4 +101,27 @@ class VerifyEmailResponse(BaseModel):
     message: str
     organizationId: Optional[str] = None
     userId: Optional[str] = None
-    temporaryPassword: Optional[str] = None  # Only for organization registration
+    needsPassword: bool = False  # True if user needs to create password
+
+
+class CreatePasswordRequest(BaseModel):
+    """Request to create password after email verification"""
+    userId: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
+    confirmPassword: str = Field(..., min_length=8)
+    
+    def validate_passwords_match(self) -> bool:
+        """Validate that passwords match"""
+        return self.password == self.confirmPassword
+
+
+class CreatePasswordResponse(BaseModel):
+    """Response after password creation"""
+    success: bool
+    message: str
+
+
+class ResendVerificationRequest(BaseModel):
+    """Request to resend verification email"""
+    email: str = Field(..., pattern=r'^[\w\.-]+@[\w\.-]+\.\w+$')
+    entityType: str = Field(..., pattern=r'^(organization|user)$', description="Type of entity to verify")

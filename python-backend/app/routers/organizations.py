@@ -9,7 +9,10 @@ from app.models.schemas_registration import (
     OrganizationRegistrationRequest,
     EmailVerificationResponse,
     VerifyEmailRequest,
-    VerifyEmailResponse
+    VerifyEmailResponse,
+    CreatePasswordRequest,
+    CreatePasswordResponse,
+    ResendVerificationRequest
 )
 from app.services.organization_service import OrganizationService
 from app.services.registration_service import RegistrationService
@@ -74,7 +77,7 @@ async def verify_email(
     1. Validates the verification token
     2. Activates the organization
     3. Activates the admin user
-    4. Sends welcome email with temporary password
+    4. Sends welcome email directing user to create password
     """
     try:
         service = RegistrationService(db)
@@ -96,7 +99,82 @@ async def verify_email(
         )
 
 
-# ==================== Authenticated Endpoints ====================
+@router.post("/create-password", response_model=CreatePasswordResponse)
+async def create_password(
+    request: CreatePasswordRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Create password after email verification (PUBLIC - No authentication required)
+    
+    This endpoint:
+    1. Validates that passwords match
+    2. Sets the user's password
+    3. Marks account as ready for login
+    """
+    # Validate passwords match
+    if not request.validate_passwords_match():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Passwords do not match"
+        )
+    
+    try:
+        service = RegistrationService(db)
+        result = await service.create_user_password(request.userId, request.password)
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result["message"]
+            )
+        
+        return CreatePasswordResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Password creation failed: {str(e)}"
+        )
+
+
+@router.post("/resend-verification", response_model=EmailVerificationResponse)
+async def resend_verification(
+    request: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Resend verification email if original expired (PUBLIC - No authentication required)
+    
+    This endpoint:
+    1. Checks if email exists and is not yet verified
+    2. Creates a new verification token
+    3. Sends a new verification email
+    
+    Use this when the original 24-hour verification link expires.
+    """
+    try:
+        service = RegistrationService(db)
+        result = await service.resend_verification_email(
+            email=request.email,
+            entity_type=request.entityType
+        )
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result["message"]
+            )
+        
+        return EmailVerificationResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Resend verification failed: {str(e)}"
+        )
 
 @router.post("/", response_model=OrganizationResponse)
 async def create_organization(

@@ -162,12 +162,7 @@ class RegistrationService:
             
             logger.info(f"Created team: {team.name} (ID: {team.id})")
             
-            # 3. Generate temporary password for admin
-            temp_password = self._generate_temporary_password()
-            password_hash = get_password_hash(temp_password)
-
-            
-            # 4. Create Admin User
+            # 3. Create Admin User WITHOUT password (will be set after email verification)
             username = self._generate_username(
                 registration.adminFirstName,
                 registration.adminLastName,
@@ -180,11 +175,11 @@ class RegistrationService:
                 first_name=registration.adminFirstName,
                 last_name=registration.adminLastName,
                 phone=registration.adminPhone,
-                password_hash=password_hash,
+                password_hash="",  # Empty - user will set password after verification
                 role="org_admin",
                 status="pending",  # Will be activated after email verification
                 email_verified=False,
-                requires_password_change=True,  # Force password change on first login
+                requires_password_change=False,  # Not needed since they'll create their own
                 organization_id=organization.id,
                 team_id=team.id
             )
@@ -222,9 +217,7 @@ class RegistrationService:
                 "message": "Registration successful. Please check your email to verify your account.",
                 "organization_id": str(organization.id),
                 "admin_email": registration.adminEmail,
-                "verification_sent_to": registration.organizationEmail,
-                # Store temp password temporarily (will be sent in welcome email after verification)
-                "_temp_password": temp_password  # Internal use only
+                "verification_sent_to": registration.organizationEmail
             }
             
         except Exception as e:
@@ -284,18 +277,13 @@ class RegistrationService:
             if admin_user:
                 admin_user.status = "active"
                 admin_user.email_verified = True
+                # Password remains empty - user will create it on frontend
                 
-                # Generate new temporary password for welcome email
-                temp_password = self._generate_temporary_password()
-                admin_user.password_hash = get_password_hash(temp_password)
-
-                
-                # Send welcome email with credentials
-                await self.email_service.send_welcome_email(
+                # Send welcome email WITHOUT password
+                await self.email_service.send_welcome_email_no_password(
                     email=admin_user.email,
                     first_name=admin_user.first_name or "User",
-                    organization_name=organization.name,
-                    temporary_password=temp_password
+                    organization_name=organization.name
                 )
             
             await self.db.commit()
@@ -304,13 +292,170 @@ class RegistrationService:
             
             return {
                 "success": True,
-                "message": "Email verified successfully. Welcome email sent with login credentials.",
+                "message": "Email verified successfully. Please create your password to continue.",
                 "organizationId": str(organization.id),
                 "userId": str(admin_user.id) if admin_user else None,
-                "temporaryPassword": temp_password if admin_user else None
+                "needsPassword": True  # Frontend should show password creation form
             }
             
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Email verification failed: {str(e)}")
+            raise
+    
+    async def create_user_password(self, user_id: str, password: str) -> Dict[str, Any]:
+        """
+        Create password for user after email verification
+        
+        Args:
+            user_id: User ID
+            password: New password
+            
+        Returns:
+            Dict with success status
+        """
+        try:
+            # Get user
+            user_stmt = select(User).where(User.id == user_id)
+            user_result = await self.db.execute(user_stmt)
+            user = user_result.scalars().first()
+            
+            if not user:
+                return {
+                    "success": False,
+                    "message": "User not found"
+                }
+            
+            # Check if user is verified
+            if not user.email_verified:
+                return {
+                    "success": False,
+                    "message": "Email not verified. Please verify your email first."
+                }
+            
+            # Check if password is already set
+            if user.password_hash and user.password_hash != "":
+                return {
+                    "success": False,
+                    "message": "Password already set. Please use login page."
+                }
+            
+            # Set password
+            user.password_hash = get_password_hash(password)
+            await self.db.commit()
+            
+            logger.info(f"✅ Password created for user {user.email}")
+            
+            return {
+                "success": True,
+                "message": "Password created successfully. You can now log in."
+            }
+            
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Password creation failed: {str(e)}")
+            raise
+    
+    async def resend_verification_email(self, email: str, entity_type: str) -> Dict[str, Any]:
+        """
+        Resend verification email if original expired or was lost
+        
+        Args:
+            email: Email address
+            entity_type: 'organization' or 'user'
+            
+        Returns:
+            Dict with success status
+        """
+        try:
+            if entity_type == "organization":
+                # Find organization by email
+                org_stmt = select(Organization).where(Organization.contact_email == email)
+                org_result = await self.db.execute(org_stmt)
+                organization = org_result.scalars().first()
+                
+                if not organization:
+                    return {
+                        "success": False,
+                        "message": "Organization not found with this email"
+                    }
+                
+                # Check if already verified
+                if organization.email_verified:
+                    return {
+                        "success": False,
+                        "message": "Email already verified. Please proceed to login."
+                    }
+                
+                # Create new verification token
+                token = await self.email_service.create_verification_token(
+                    email=email,
+                    entity_type="organization",
+                    entity_id=str(organization.id),
+                    purpose="registration",
+                    expires_in_hours=24
+                )
+                
+                # Send verification email
+                await self.email_service.send_verification_email(
+                    email=email,
+                    token=token,
+                    purpose="registration"
+                )
+                
+                logger.info(f"✅ Resent verification email to {email}")
+                
+                return {
+                    "success": True,
+                    "message": "Verification email has been resent. Please check your inbox.",
+                    "email": email,
+                    "expiresIn": 24 * 60  # 24 hours in minutes
+                }
+                
+            else:  # user
+                # Find user by email
+                user_stmt = select(User).where(User.email == email)
+                user_result = await self.db.execute(user_stmt)
+                user = user_result.scalars().first()
+                
+                if not user:
+                    return {
+                        "success": False,
+                        "message": "User not found with this email"
+                    }
+                
+                # Check if already verified
+                if user.email_verified:
+                    return {
+                        "success": False,
+                        "message": "Email already verified. Please proceed to login."
+                    }
+                
+                # Create new verification token
+                token = await self.email_service.create_verification_token(
+                    email=email,
+                    entity_type="user",
+                    entity_id=str(user.id),
+                    purpose="registration",
+                    expires_in_hours=24
+                )
+                
+                # Send verification email
+                await self.email_service.send_verification_email(
+                    email=email,
+                    token=token,
+                    purpose="registration"
+                )
+                
+                logger.info(f"✅ Resent verification email to {email}")
+                
+                return {
+                    "success": True,
+                    "message": "Verification email has been resent. Please check your inbox.",
+                    "email": email,
+                    "expiresIn": 24 * 60
+                }
+                
+        except Exception as e:
+            logger.error(f"Resend verification failed: {str(e)}")
             raise

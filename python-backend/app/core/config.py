@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     enable_cors: bool = True
     frontend_url: str = "http://localhost:3000"  # Frontend URL for email links
     
+    # SMTP Email Configuration
+    smtp_enabled: bool = True
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@taigun.com"
+    smtp_from_name: str = "Taigun ServiceNow AI"
+    smtp_use_tls: bool = True
+    
     # Admin Authentication
     admin_username: str = "admin"
     admin_password: str = "admin123"
