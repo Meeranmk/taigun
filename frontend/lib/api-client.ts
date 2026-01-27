@@ -143,29 +143,29 @@ class APIClient {
     // ==================== Teams ====================
 
     async getTeams(organizationId?: string, params?: PaginationParams): Promise<PaginatedResponse<Team>> {
-        const { data } = await this.client.get<PaginatedResponse<Team>>('/teams', {
-            params: { organizationId, ...params }
+        const { data } = await this.client.get<PaginatedResponse<Team>>('/admin/teams', {
+            params: { organization_id: organizationId, ...params }
         });
         return data;
     }
 
     async getTeam(id: string): Promise<ApiResponse<Team>> {
-        const { data } = await this.client.get<ApiResponse<Team>>(`/teams/${id}`);
+        const { data } = await this.client.get<ApiResponse<Team>>(`/admin/teams/${id}`);
         return data;
     }
 
     async createTeam(team: Partial<Team>): Promise<ApiResponse<Team>> {
-        const { data } = await this.client.post<ApiResponse<Team>>('/teams', team);
+        const { data } = await this.client.post<ApiResponse<Team>>('/admin/teams', team);
         return data;
     }
 
     async updateTeam(id: string, updates: Partial<Team>): Promise<ApiResponse<Team>> {
-        const { data } = await this.client.put<ApiResponse<Team>>(`/teams/${id}`, updates);
+        const { data } = await this.client.put<ApiResponse<Team>>(`/admin/teams/${id}`, updates);
         return data;
     }
 
     async deleteTeam(id: string): Promise<ApiResponse<void>> {
-        const { data } = await this.client.delete<ApiResponse<void>>(`/teams/${id}`);
+        const { data } = await this.client.delete<ApiResponse<void>>(`/admin/teams/${id}`);
         return data;
     }
 

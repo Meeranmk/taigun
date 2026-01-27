@@ -30,16 +30,16 @@ export function ProtectedRoute({
             if (allowedRoles && user && !allowedRoles.includes(user.role)) {
                 // Redirect to appropriate dashboard based on role
                 switch (user.role) {
-                    case UserRole.SUPER_ADMIN:
+                    case 'platform_owner':
                         router.push('/super-admin');
                         break;
-                    case UserRole.ORG_ADMIN:
+                    case 'org_admin':
                         router.push('/org-admin');
                         break;
-                    case UserRole.TEAM_ADMIN:
+                    case 'team_admin':
                         router.push('/team-admin');
                         break;
-                    case UserRole.USER:
+                    case 'user':
                         router.push('/user');
                         break;
                     default:

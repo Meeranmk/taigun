@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routers import auth, chat, admin, test, users, knowledge_base, analytics, settings, organizations, tickets
+from app.routers import auth, chat, admin, test, users, knowledge_base, analytics, settings, organizations, tickets, teams
 
 api_router = APIRouter()
 
@@ -11,5 +11,6 @@ api_router.include_router(users.router, prefix="/api/admin/users", tags=["users"
 api_router.include_router(knowledge_base.router, prefix="/api/admin/knowledge-base", tags=["knowledge-base"])
 api_router.include_router(analytics.router, prefix="/api/admin/analytics", tags=["analytics"])
 api_router.include_router(settings.router, prefix="/api/admin/settings", tags=["settings"])
+api_router.include_router(teams.router, prefix="/api/admin/teams", tags=["teams"])
 api_router.include_router(organizations.router)
 api_router.include_router(tickets.router, prefix="/api/tickets", tags=["tickets"])

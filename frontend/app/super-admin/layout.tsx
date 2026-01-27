@@ -3,7 +3,6 @@
 import { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { UserRole } from '@/lib/types';
 import { useAuth } from '@/lib/auth-provider';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,7 +30,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
     const { sidebarOpen, toggleSidebar } = useUIStore();
 
     return (
-        <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+        <ProtectedRoute allowedRoles={['platform_owner']}>
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
                 {/* Sidebar */}
                 <div

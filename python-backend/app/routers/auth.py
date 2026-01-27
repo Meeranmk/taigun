@@ -77,8 +77,18 @@ async def admin_login(
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
+            "id": str(user.id),
             "username": user.username,
-            "role": user.role
+            "email": user.email,
+            "firstName": user.first_name,
+            "lastName": user.last_name,
+            "role": user.role,
+            "status": user.status,
+            "organizationId": str(user.organization_id) if user.organization_id else None,
+            "teamId": str(user.team_id) if user.team_id else None,
+            "lastLoginAt": user.last_login_at.isoformat() if user.last_login_at else None,
+            "createdAt": user.created_at.isoformat() if user.created_at else None,
+            "updatedAt": user.updated_at.isoformat() if user.updated_at else None
         }
     }
 
@@ -93,6 +103,18 @@ async def auth_status(current_user: User = Depends(get_current_user)):
     """Check authentication status"""
     return {
         "isAuthenticated": True,
-        "username": current_user.username,
-        "role": current_user.role
+        "user": {
+            "id": str(current_user.id),
+            "username": current_user.username,
+            "email": current_user.email,
+            "firstName": current_user.first_name,
+            "lastName": current_user.last_name,
+            "role": current_user.role,
+            "status": current_user.status,
+            "organizationId": str(current_user.organization_id) if current_user.organization_id else None,
+            "teamId": str(current_user.team_id) if current_user.team_id else None,
+            "lastLoginAt": current_user.last_login_at.isoformat() if current_user.last_login_at else None,
+            "createdAt": current_user.created_at.isoformat() if current_user.created_at else None,
+            "updatedAt": current_user.updated_at.isoformat() if current_user.updated_at else None
+        }
     }

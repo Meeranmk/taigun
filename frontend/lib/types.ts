@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'platform_owner' | 'org_admin' | 'team_admin' | 'user';
 
 export interface User {
     id: string;
@@ -8,7 +8,8 @@ export interface User {
     lastName: string;
     role: UserRole;
     status: 'active' | 'inactive';
-    teamId: string;
+    organizationId?: string;
+    teamId?: string;
     lastLoginAt?: string;
     createdAt: string;
     updatedAt: string;
@@ -80,16 +81,12 @@ export interface TeamAnalytics {
 export interface AuthResponse {
     success: boolean;
     message: string;
-    user?: {
-        username: string;
-        role: 'admin' | 'user';
-    };
+    user?: User;
 }
 
 export interface AuthStatus {
     isAuthenticated: boolean;
-    username?: string;
-    role?: 'admin' | 'user';
+    user?: User;
 }
 
 export interface VerifyEmailResponse {
@@ -127,6 +124,7 @@ export interface Team {
     name: string;
     organizationId: string;
     description?: string;
+    status?: 'active' | 'inactive';
     createdAt: string;
     updatedAt: string;
     memberCount: number;

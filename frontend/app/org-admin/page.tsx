@@ -32,9 +32,16 @@ export default function OrgAdminTeamsPage() {
         try {
             setLoading(true);
             const response = await api.getTeams(user?.organizationId);
-            setTeams(response.data);
-        } catch (error) {
+            // PaginatedResponse has an 'items' array
+            setTeams(response.items || []);
+        } catch (error: any) {
             console.error('Failed to fetch teams:', error);
+            addToast({
+                type: 'error',
+                title: 'Failed to Load Teams',
+                message: error.response?.data?.detail || error.message || 'Unable to fetch teams',
+            });
+            setTeams([]); // Set empty array on error
         } finally {
             setLoading(false);
         }
@@ -67,7 +74,7 @@ export default function OrgAdminTeamsPage() {
         }
     };
 
-    const filteredTeams = teams.filter(team =>
+    const filteredTeams = (teams || []).filter(team =>
         team.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -193,8 +200,8 @@ export default function OrgAdminTeamsPage() {
                                             <TableCell>
                                                 <span
                                                     className={`px-2 py-1 text-xs font-medium rounded-full ${team.status === 'active'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-gray-100 text-gray-800'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
                                                         }`}
                                                 >
                                                     {team.status}
