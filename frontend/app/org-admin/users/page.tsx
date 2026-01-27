@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api from '@/lib/api-client';
-import { User, UserRole } from '@/lib/types';
+import { User, UserRole, Team } from '@/lib/types';
 import { Plus, Search, Download, Upload } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-provider';
@@ -20,6 +20,7 @@ export default function OrgAdminUsersPage() {
     const { user } = useAuth();
     const { addToast } = useUIStore();
     const [users, setUsers] = useState<User[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -29,19 +30,34 @@ export default function OrgAdminUsersPage() {
         password: '',
         firstName: '',
         lastName: '',
-        role: 'USER' as UserRole,
+        role: 'user' as UserRole,
         teamId: '',
     });
 
     useEffect(() => {
         fetchUsers();
+        fetchTeams();
     }, []);
+
+    const fetchTeams = async () => {
+        try {
+            const response = await api.getTeams(user?.organizationId);
+            setTeams(response.items || []);
+        } catch (error) {
+            console.error('Failed to fetch teams:', error);
+            addToast({
+                type: 'error',
+                title: 'Failed to Load Teams',
+                message: 'Unable to fetch teams for user assignment',
+            });
+        }
+    };
 
     const fetchUsers = async () => {
         try {
             setLoading(true);
             const response = await api.getUsers({ organizationId: user?.organizationId });
-            setUsers(response.data);
+            setUsers(response.items || []);
         } catch (error) {
             console.error('Failed to fetch users:', error);
         } finally {
@@ -51,7 +67,29 @@ export default function OrgAdminUsersPage() {
 
     const handleCreateUser = async () => {
         try {
-            await api.createUser(newUser);
+            // Validate required fields
+            if (!newUser.username || !newUser.email || !newUser.password) {
+                addToast({
+                    type: 'error',
+                    title: 'Validation Error',
+                    message: 'Username, email, and password are required',
+                });
+                return;
+            }
+
+            if (!newUser.teamId) {
+                addToast({
+                    type: 'error',
+                    title: 'Validation Error',
+                    message: 'Please select a team for the user',
+                });
+                return;
+            }
+
+            await api.createUser({
+                ...newUser,
+                organizationId: user?.organizationId!,
+            });
 
             addToast({
                 type: 'success',
@@ -66,7 +104,7 @@ export default function OrgAdminUsersPage() {
                 password: '',
                 firstName: '',
                 lastName: '',
-                role: 'USER',
+                role: 'user',
                 teamId: '',
             });
             fetchUsers();
@@ -74,7 +112,7 @@ export default function OrgAdminUsersPage() {
             addToast({
                 type: 'error',
                 title: 'Failed to Create User',
-                message: error.message,
+                message: error.response?.data?.detail || error.message || 'An error occurred',
             });
         }
     };
@@ -188,9 +226,28 @@ export default function OrgAdminUsersPage() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="USER">User</SelectItem>
-                                            <SelectItem value="TEAM_ADMIN">Team Admin</SelectItem>
-                                            <SelectItem value="ORG_ADMIN">Org Admin</SelectItem>
+                                            <SelectItem value="user">User</SelectItem>
+                                            <SelectItem value="team_admin">Team Admin</SelectItem>
+                                            <SelectItem value="org_admin">Org Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="team">Team *</Label>
+                                    <Select value={newUser.teamId} onValueChange={(value) => setNewUser({ ...newUser, teamId: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a team" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {teams.length === 0 ? (
+                                                <SelectItem value="" disabled>No teams available</SelectItem>
+                                            ) : (
+                                                teams.map((team) => (
+                                                    <SelectItem key={team.id} value={team.id}>
+                                                        {team.name}
+                                                    </SelectItem>
+                                                ))
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -262,8 +319,8 @@ export default function OrgAdminUsersPage() {
                                             <TableCell>
                                                 <span
                                                     className={`px-2 py-1 text-xs font-medium rounded-full ${u.status === 'active'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-gray-100 text-gray-800'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
                                                         }`}
                                                 >
                                                     {u.status}

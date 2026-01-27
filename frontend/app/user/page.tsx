@@ -29,9 +29,10 @@ export default function UserKnowledgeBasePage() {
                 teamId: user?.teamId,
                 status: 'published'
             });
-            setArticles(response.data);
+            setArticles(response.items || []);
         } catch (error) {
             console.error('Failed to fetch articles:', error);
+            setArticles([]);
         } finally {
             setLoading(false);
         }
@@ -45,12 +46,21 @@ export default function UserKnowledgeBasePage() {
 
         try {
             setLoading(true);
-            const response = await api.searchKnowledgeBase(searchQuery, user?.teamId);
-            if (response.success && response.data) {
-                setArticles(response.data);
-            }
+            // For now, just filter locally since search endpoint may not be implemented
+            const response = await api.getKnowledgeBase({
+                teamId: user?.teamId,
+                status: 'published'
+            });
+            const allArticles = response.items || [];
+            const filtered = allArticles.filter(article =>
+                article.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                article.problem.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                article.category.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+            setArticles(filtered);
         } catch (error) {
             console.error('Search failed:', error);
+            setArticles([]);
         } finally {
             setLoading(false);
         }
@@ -142,10 +152,10 @@ export default function UserKnowledgeBasePage() {
                                         <CardTitle className="text-lg">{article.title || article.problem}</CardTitle>
                                         <span
                                             className={`px-2 py-1 text-xs font-medium rounded-full ${article.priority === 'high'
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : article.priority === 'medium'
-                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                        : 'bg-green-100 text-green-800'
+                                                ? 'bg-red-100 text-red-800'
+                                                : article.priority === 'medium'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-green-100 text-green-800'
                                                 }`}
                                         >
                                             {article.priority}

@@ -27,8 +27,23 @@ export default function UserAnalyticsPage() {
             if (response.success && response.data) {
                 setAnalytics(response.data);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to fetch analytics:', error);
+            // Set default analytics if endpoint doesn't exist
+            if (error.response?.status === 404) {
+                setAnalytics({
+                    userId: user?.id || '',
+                    queriesLast30Days: 0,
+                    avgResponseTime: 0,
+                    contributionScore: 0,
+                    recentActivity: [],
+                    totalQueries: 0,
+                    resolvedQueries: 0,
+                    averageResolutionTime: 0,
+                    mostAccessedArticles: [],
+                    frequentlyAskedQuestions: []
+                } as any);
+            }
         } finally {
             setLoading(false);
         }
@@ -84,7 +99,7 @@ export default function UserAnalyticsPage() {
                         <Clock className="w-4 h-4 text-gray-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{analytics?.averageResolutionTime.toFixed(1)}s</div>
+                        <div className="text-2xl font-bold">{analytics?.averageResolutionTime?.toFixed(1) || '0.0'}s</div>
                     </CardContent>
                 </Card>
 
@@ -94,7 +109,7 @@ export default function UserAnalyticsPage() {
                         <BookOpen className="w-4 h-4 text-gray-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{analytics?.mostAccessedArticles.length || 0}</div>
+                        <div className="text-2xl font-bold">{analytics?.mostAccessedArticles?.length || 0}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -107,7 +122,7 @@ export default function UserAnalyticsPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-3">
-                        {analytics?.mostAccessedArticles.map((article, index) => (
+                        {analytics?.mostAccessedArticles?.map((article, index) => (
                             <div key={article.articleId} className="flex items-center justify-between p-3 border rounded-lg">
                                 <div className="flex items-center space-x-3">
                                     <span className="text-lg font-bold text-gray-400">#{index + 1}</span>
@@ -133,7 +148,7 @@ export default function UserAnalyticsPage() {
                 </CardHeader>
                 <CardContent>
                     <ul className="space-y-2">
-                        {analytics?.frequentlyAskedQuestions.map((question, index) => (
+                        {analytics?.frequentlyAskedQuestions?.map((question, index) => (
                             <li key={index} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                 <p className="text-sm text-gray-900 dark:text-white">{question}</p>
                             </li>

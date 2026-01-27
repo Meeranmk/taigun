@@ -187,41 +187,41 @@ class APIClient {
     // ==================== Users ====================
 
     async getUsers(params?: PaginationParams & { teamId?: string; organizationId?: string }): Promise<PaginatedResponse<User>> {
-        const { data } = await this.client.get<PaginatedResponse<User>>('/users', { params });
+        const { data } = await this.client.get<PaginatedResponse<User>>('/admin/users', { params });
         return data;
     }
 
     async getUser(id: string): Promise<ApiResponse<User>> {
-        const { data } = await this.client.get<ApiResponse<User>>(`/users/${id}`);
+        const { data } = await this.client.get<ApiResponse<User>>(`/admin/users/${id}`);
         return data;
     }
 
     async createUser(user: CreateUserInput): Promise<ApiResponse<User>> {
-        const { data } = await this.client.post<ApiResponse<User>>('/users', user);
+        const { data } = await this.client.post<ApiResponse<User>>('/admin/users', user);
         return data;
     }
 
     async updateUser(id: string, updates: Partial<User>): Promise<ApiResponse<User>> {
-        const { data } = await this.client.put<ApiResponse<User>>(`/users/${id}`, updates);
+        const { data } = await this.client.put<ApiResponse<User>>(`/admin/users/${id}`, updates);
         return data;
     }
 
     async deleteUser(id: string): Promise<ApiResponse<void>> {
-        const { data } = await this.client.delete<ApiResponse<void>>(`/users/${id}`);
+        const { data } = await this.client.delete<ApiResponse<void>>(`/admin/users/${id}`);
         return data;
     }
 
     async bulkImportUsers(file: File): Promise<ApiResponse<{ imported: number; failed: number }>> {
         const formData = new FormData();
         formData.append('file', file);
-        const { data } = await this.client.post<ApiResponse<{ imported: number; failed: number }>>('/users/bulk-import', formData, {
+        const { data } = await this.client.post<ApiResponse<{ imported: number; failed: number }>>('/admin/users/bulk-import', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return data;
     }
 
     async exportUsers(params?: { teamId?: string; organizationId?: string }): Promise<Blob> {
-        const { data } = await this.client.get('/users/export', {
+        const { data } = await this.client.get('/admin/users/export', {
             params,
             responseType: 'blob'
         });
@@ -231,51 +231,51 @@ class APIClient {
     // ==================== Knowledge Base ====================
 
     async getKnowledgeBase(params?: PaginationParams & { teamId?: string; category?: string; status?: string }): Promise<PaginatedResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.get<PaginatedResponse<KnowledgeBaseArticle>>('/knowledge-base', { params });
+        const { data } = await this.client.get<PaginatedResponse<KnowledgeBaseArticle>>('/admin/knowledge-base', { params });
         return data;
     }
 
     async getArticle(id: string): Promise<ApiResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.get<ApiResponse<KnowledgeBaseArticle>>(`/knowledge-base/${id}`);
+        const { data } = await this.client.get<ApiResponse<KnowledgeBaseArticle>>(`/admin/knowledge-base/${id}`);
         return data;
     }
 
     async createArticle(article: Partial<KnowledgeBaseArticle>): Promise<ApiResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.post<ApiResponse<KnowledgeBaseArticle>>('/knowledge-base', article);
+        const { data } = await this.client.post<ApiResponse<KnowledgeBaseArticle>>('/admin/knowledge-base', article);
         return data;
     }
 
     async updateArticle(id: string, updates: Partial<KnowledgeBaseArticle>): Promise<ApiResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.put<ApiResponse<KnowledgeBaseArticle>>(`/knowledge-base/${id}`, updates);
+        const { data } = await this.client.put<ApiResponse<KnowledgeBaseArticle>>(`/admin/knowledge-base/${id}`, updates);
         return data;
     }
 
     async deleteArticle(id: string): Promise<ApiResponse<void>> {
-        const { data } = await this.client.delete<ApiResponse<void>>(`/knowledge-base/${id}`);
+        const { data } = await this.client.delete<ApiResponse<void>>(`/admin/knowledge-base/${id}`);
         return data;
     }
 
     async publishArticle(id: string): Promise<ApiResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.patch<ApiResponse<KnowledgeBaseArticle>>(`/knowledge-base/${id}/publish`);
+        const { data } = await this.client.patch<ApiResponse<KnowledgeBaseArticle>>(`/admin/knowledge-base/${id}/publish`);
         return data;
     }
 
     async unpublishArticle(id: string): Promise<ApiResponse<KnowledgeBaseArticle>> {
-        const { data } = await this.client.patch<ApiResponse<KnowledgeBaseArticle>>(`/knowledge-base/${id}/unpublish`);
+        const { data } = await this.client.patch<ApiResponse<KnowledgeBaseArticle>>(`/admin/knowledge-base/${id}/unpublish`);
         return data;
     }
 
     async uploadArticleAttachment(articleId: string, file: File): Promise<ApiResponse<{ url: string }>> {
         const formData = new FormData();
         formData.append('file', file);
-        const { data } = await this.client.post<ApiResponse<{ url: string }>>(`/knowledge-base/${articleId}/attachments`, formData, {
+        const { data } = await this.client.post<ApiResponse<{ url: string }>>(`/admin/knowledge-base/${articleId}/attachments`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return data;
     }
 
     async searchKnowledgeBase(query: string, teamId?: string): Promise<ApiResponse<KnowledgeBaseArticle[]>> {
-        const { data } = await this.client.get<ApiResponse<KnowledgeBaseArticle[]>>('/knowledge-base/search', {
+        const { data } = await this.client.get<ApiResponse<KnowledgeBaseArticle[]>>('/admin/knowledge-base/search', {
             params: { query, teamId }
         });
         return data;
@@ -284,35 +284,35 @@ class APIClient {
     // ==================== Analytics ====================
 
     async getPlatformAnalytics(dateRange?: { start: string; end: string }): Promise<ApiResponse<PlatformAnalytics>> {
-        const { data } = await this.client.get<ApiResponse<PlatformAnalytics>>('/analytics/platform', {
+        const { data } = await this.client.get<ApiResponse<PlatformAnalytics>>('/admin/analytics/platform', {
             params: dateRange
         });
         return data;
     }
 
     async getTeamAnalytics(teamId: string, dateRange?: { start: string; end: string }): Promise<ApiResponse<TeamAnalytics>> {
-        const { data } = await this.client.get<ApiResponse<TeamAnalytics>>(`/analytics/teams/${teamId}`, {
+        const { data } = await this.client.get<ApiResponse<TeamAnalytics>>(`/admin/analytics/teams/${teamId}`, {
             params: dateRange
         });
         return data;
     }
 
     async getOrganizationAnalytics(organizationId: string, dateRange?: { start: string; end: string }): Promise<ApiResponse<any>> {
-        const { data } = await this.client.get<ApiResponse<any>>(`/analytics/organizations/${organizationId}`, {
+        const { data } = await this.client.get<ApiResponse<any>>(`/admin/analytics/organizations/${organizationId}`, {
             params: dateRange
         });
         return data;
     }
 
     async getPersonalAnalytics(userId: string, dateRange?: { start: string; end: string }): Promise<ApiResponse<PersonalAnalytics>> {
-        const { data } = await this.client.get<ApiResponse<PersonalAnalytics>>(`/analytics/users/${userId}`, {
+        const { data } = await this.client.get<ApiResponse<PersonalAnalytics>>(`/admin/analytics/users/${userId}`, {
             params: dateRange
         });
         return data;
     }
 
     async exportAnalytics(type: 'platform' | 'organization' | 'team', id?: string, format: 'pdf' | 'csv' | 'excel' = 'pdf'): Promise<Blob> {
-        const { data } = await this.client.get(`/analytics/export/${type}${id ? `/${id}` : ''}`, {
+        const { data } = await this.client.get(`/admin/analytics/export/${type}${id ? `/${id}` : ''}`, {
             params: { format },
             responseType: 'blob'
         });

@@ -180,9 +180,16 @@ class CreateUserRequest(BaseModel):
     username: str
     email: str
     password: str
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
     role: str = "user"
     organization_id: Optional[str] = None
     team_id: Optional[str] = None
+    organizationId: Optional[str] = None  # Accept camelCase too
+    teamId: Optional[str] = None  # Accept camelCase too
+    
+    class Config:
+        populate_by_name = True  # Allow both snake_case and camelCase
 
 
 class ChangePasswordRequest(BaseModel):

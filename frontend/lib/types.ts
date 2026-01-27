@@ -150,6 +150,16 @@ export interface PersonalAnalytics {
         timestamp: string;
         details?: string;
     }[];
+    totalQueries?: number;
+    resolvedQueries?: number;
+    averageResolutionTime?: number;
+    mostAccessedArticles?: {
+        articleId: string;
+        title: string;
+        viewCount: number;
+        effectiveness: number;
+    }[];
+    frequentlyAskedQuestions?: string[];
 }
 
 export interface ChangePasswordInput {

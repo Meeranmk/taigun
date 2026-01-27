@@ -18,8 +18,9 @@ class UserService:
         self.db = db
 
     async def create(self, user_in: CreateUserRequest) -> User:
-        org_id = user_in.organization_id
-        team_id = user_in.team_id
+        # Handle both camelCase and snake_case
+        org_id = user_in.organizationId or user_in.organization_id
+        team_id = user_in.teamId or user_in.team_id
 
         # Fallback to default team if no context provided (e.g. initial setup behavior)
         if not org_id and not team_id:
@@ -35,6 +36,8 @@ class UserService:
             id=str(uuid.uuid4()),
             username=user_in.username,
             email=user_in.email,
+            first_name=user_in.firstName,
+            last_name=user_in.lastName,
             password_hash=get_password_hash(user_in.password),
             role=user_in.role,
             organization_id=org_id,

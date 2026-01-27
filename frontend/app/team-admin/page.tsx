@@ -28,9 +28,10 @@ export default function TeamAdminKnowledgeBasePage() {
         try {
             setLoading(true);
             const response = await api.getKnowledgeBase({ teamId: user?.teamId });
-            setArticles(response.data);
+            setArticles(response.items || []);
         } catch (error) {
             console.error('Failed to fetch articles:', error);
+            setArticles([]); // Set empty array on error
         } finally {
             setLoading(false);
         }
@@ -141,10 +142,10 @@ export default function TeamAdminKnowledgeBasePage() {
                                             <TableCell>
                                                 <span
                                                     className={`px-2 py-1 text-xs font-medium rounded-full ${article.priority === 'high'
-                                                            ? 'bg-red-100 text-red-800'
-                                                            : article.priority === 'medium'
-                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                : 'bg-green-100 text-green-800'
+                                                        ? 'bg-red-100 text-red-800'
+                                                        : article.priority === 'medium'
+                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                            : 'bg-green-100 text-green-800'
                                                         }`}
                                                 >
                                                     {article.priority}
@@ -153,8 +154,8 @@ export default function TeamAdminKnowledgeBasePage() {
                                             <TableCell>
                                                 <span
                                                     className={`px-2 py-1 text-xs font-medium rounded-full ${article.status === 'published'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-gray-100 text-gray-800'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
                                                         }`}
                                                 >
                                                     {article.status}

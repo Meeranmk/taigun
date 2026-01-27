@@ -1,36 +1,102 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api from '@/lib/api-client';
 import { User } from '@/lib/types';
 import { Search, UserPlus } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-provider';
+import { useUIStore } from '@/lib/store/uiStore';
 
 export default function TeamAdminUsersPage() {
     const { user } = useAuth();
+    const { addToast } = useUIStore();
     const [users, setUsers] = useState<User[]>([]);
+    const [availableUsers, setAvailableUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState('');
+    const [addingMember, setAddingMember] = useState(false);
 
     useEffect(() => {
         fetchUsers();
     }, []);
 
+    useEffect(() => {
+        if (isAddMemberDialogOpen) {
+            fetchAvailableUsers();
+        }
+    }, [isAddMemberDialogOpen]);
+
     const fetchUsers = async () => {
         try {
             setLoading(true);
             const response = await api.getUsers({ teamId: user?.teamId });
-            setUsers(response.data);
+            setUsers(response.items || []);
         } catch (error) {
             console.error('Failed to fetch users:', error);
+            setUsers([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAvailableUsers = async () => {
+        try {
+            const response = await api.getUsers({ organizationId: user?.organizationId });
+            const allOrgUsers = response.items || [];
+            const available = allOrgUsers.filter(u => u.teamId !== user?.teamId);
+            setAvailableUsers(available);
+        } catch (error) {
+            console.error('Failed to fetch available users:', error);
+            addToast({
+                type: 'error',
+                title: 'Failed to Load Users',
+                message: 'Unable to fetch available users',
+            });
+        }
+    };
+
+    const handleAddMember = async () => {
+        if (!selectedUserId) {
+            addToast({
+                type: 'error',
+                title: 'Validation Error',
+                message: 'Please select a user to add',
+            });
+            return;
+        }
+
+        try {
+            setAddingMember(true);
+            await api.updateUser(selectedUserId, { teamId: user?.teamId });
+
+            addToast({
+                type: 'success',
+                title: 'Member Added',
+                message: 'User has been added to your team successfully',
+            });
+
+            setIsAddMemberDialogOpen(false);
+            setSelectedUserId('');
+            fetchUsers();
+        } catch (error: any) {
+            addToast({
+                type: 'error',
+                title: 'Failed to Add Member',
+                message: error.response?.data?.detail || error.message || 'An error occurred',
+            });
+        } finally {
+            setAddingMember(false);
         }
     };
 
@@ -48,10 +114,55 @@ export default function TeamAdminUsersPage() {
                         Manage members in your team
                     </p>
                 </div>
-                <Button>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Add Member
-                </Button>
+                <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Add Member
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Add Team Member</DialogTitle>
+                            <DialogDescription>
+                                Add an existing user from your organization to your team
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="user">Select User *</Label>
+                                {availableUsers.length === 0 ? (
+                                    <div className="p-3 border rounded-md bg-gray-50 text-gray-500 text-sm">
+                                        No available users. All users in your organization are already in your team.
+                                    </div>
+                                ) : (
+                                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Choose a user to add" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableUsers.map((u) => (
+                                                <SelectItem key={u.id} value={u.id}>
+                                                    {u.firstName} {u.lastName} ({u.email})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Only users from your organization who are not already in your team are shown.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleAddMember}
+                                className="w-full"
+                                disabled={addingMember || !selectedUserId}
+                            >
+                                {addingMember ? 'Adding...' : 'Add to Team'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <Card>
@@ -113,8 +224,8 @@ export default function TeamAdminUsersPage() {
                                             <TableCell>
                                                 <span
                                                     className={`px-2 py-1 text-xs font-medium rounded-full ${u.status === 'active'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-gray-100 text-gray-800'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
                                                         }`}
                                                 >
                                                     {u.status}

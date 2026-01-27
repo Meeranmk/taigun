@@ -209,7 +209,11 @@ export default function OrgAdminTeamsPage() {
                                             </TableCell>
                                             <TableCell>{formatDate(team.createdAt)}</TableCell>
                                             <TableCell>
-                                                <Button variant="ghost" size="sm">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => window.location.href = `/org-admin/teams/${team.id}`}
+                                                >
                                                     Manage
                                                 </Button>
                                             </TableCell>

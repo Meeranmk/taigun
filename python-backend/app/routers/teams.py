@@ -214,3 +214,130 @@ async def get_team(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch team: {str(e)}"
         )
+
+
+@router.put("/{team_id}")
+async def update_team(
+    team_id: str,
+    team_data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update a team"""
+    try:
+        query = select(Team).where(Team.id == UUID(team_id))
+        result = await db.execute(query)
+        team = result.scalar_one_or_none()
+        
+        if not team:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Team not found"
+            )
+        
+        # Check permissions
+        if current_user.role == "org_admin" and team.organization_id != current_user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # Update team fields
+        if "name" in team_data:
+            team.name = team_data["name"]
+        
+        await db.commit()
+        await db.refresh(team)
+        
+        # Get member count
+        user_count_query = select(func.count()).select_from(User).where(User.team_id == team.id)
+        user_count_result = await db.execute(user_count_query)
+        member_count = user_count_result.scalar() or 0
+        
+        return {
+            "success": True,
+            "message": "Team updated successfully",
+            "data": {
+                "id": str(team.id),
+                "name": team.name,
+                "organizationId": str(team.organization_id),
+                "description": team_data.get("description"),
+                "status": "active",
+                "memberCount": member_count,
+                "createdAt": team.created_at.isoformat() if team.created_at else None,
+                "updatedAt": team.updated_at.isoformat() if team.updated_at else None
+            }
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid UUID format: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update team: {str(e)}"
+        )
+
+
+@router.delete("/{team_id}")
+async def delete_team(
+    team_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a team"""
+    try:
+        query = select(Team).where(Team.id == UUID(team_id))
+        result = await db.execute(query)
+        team = result.scalar_one_or_none()
+        
+        if not team:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Team not found"
+            )
+        
+        # Check permissions
+        if current_user.role == "org_admin" and team.organization_id != current_user.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # Check if team has members
+        user_count_query = select(func.count()).select_from(User).where(User.team_id == team.id)
+        user_count_result = await db.execute(user_count_query)
+        member_count = user_count_result.scalar() or 0
+        
+        if member_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete team with {member_count} members. Please remove all members first."
+            )
+        
+        await db.delete(team)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "message": "Team deleted successfully"
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid UUID format: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete team: {str(e)}"
+        )
